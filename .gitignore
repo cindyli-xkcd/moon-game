@@ -1,1 +1,45 @@
 # gitignore
+
+# Python-related
+__pycache__/            # Byte-compiled files
+*.py[cod]               # Compiled Python files
+*.pyo                   # Optimized Python files
+*.pyd                   # Compiled Python extensions
+*.sqlite3               # SQLite database files (if temporary)
+
+# Virtual environment
+venv/                   # Your virtual environment folder
+
+# Flask-specific
+instance/               # Flask instance folder (if used for configs)
+*.log                   # Log files
+*.env                   # Environment variables (e.g., API keys)
+
+# Node.js (if applicable for frontend tools)
+node_modules/           # Node dependencies
+npm-debug.log           # npm debug logs
+yarn-error.log          # Yarn debug logs
+
+# OS-specific
+.DS_Store               # macOS system files
+Thumbs.db               # Windows system files
+
+# Editor-specific
+.vscode/                # VS Code workspace files
+.idea/                  # JetBrains IDE files
+*.sublime-workspace     # Sublime Text workspace files
+*.sublime-project       # Sublime Text project files
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.lock
+
+# Other files
+*.env
+chains_complete.py
+sublists.py
+test_chains.py
+test_chains_complete.py
