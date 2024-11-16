@@ -1,5 +1,6 @@
 /* script.js (game logic) */
 
+let currentPlayer = 1; // Start with Player 1
 const moonPhases = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 let selectedPhaseIndex = 0;
 
@@ -46,6 +47,7 @@ async function handleSquareClick(squareId) {
         if (data.success) {
             loadGameState();
             unhighlightPhases(); // Unhighlight phase buttons after a move
+            switchPlayer(); // Switch the player's turn
         } else {
             alert("Error placing phase: " + data.error);
         }
@@ -85,6 +87,13 @@ function unhighlightPhases() {
     });
 }
 
+// Switch the player's turn
+function switchPlayer() {
+    currentPlayer = currentPlayer === 1 ? 2 : 1; // Toggle between Player 1 and Player 2
+    const turnIndicator = document.getElementById("turn-indicator");
+    turnIndicator.innerText = `Player ${currentPlayer}'s turn`;
+}
+
 // Handle keyboard shortcuts
 function handleKeydown(event) {
     const key = event.key; // Get the key pressed
@@ -101,6 +110,8 @@ function initializeGame() {
     createPhaseButtons();
     loadGameState();
     document.addEventListener("keydown", handleKeydown); // Listen for keyboard events
+    const turnIndicator = document.getElementById("turn-indicator");
+    turnIndicator.innerText = `Player ${currentPlayer}'s turn`;
 }
 
 initializeGame();
