@@ -118,3 +118,16 @@ class Graph:
         for name, node in self.nodes.items():
             neighbor_names = [neighbor.name for neighbor in node.neighbors]
             print(f"Node {name} (value: {node.value}) -> Neighbors: {neighbor_names}")
+
+    def to_dict(self):
+        return {
+            "nodes": {
+                name: {
+                    "value": node.value,
+                    "neighbors": node.neighbors,
+                    "position": node.position
+                }
+                for name, node in self.nodes.items()
+            },
+            "edges": self.edges  # Assuming edges are stored as list of dicts with 'from' and 'to'
+        }

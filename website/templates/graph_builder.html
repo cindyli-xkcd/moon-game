@@ -1,12 +1,12 @@
-<!--Graph Builder -->
-
+<!-- project/templates/graph_builder.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Graph Builder</title>
-    <link rel="stylesheet" href="/static/graph_builder.css">
+    <!-- Correctly link to graph_builder.css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='graph_builder.css') }}">
 </head>
 <body>
     <h1>Graph Builder</h1>
@@ -14,9 +14,29 @@
         <button id="add-node">Add Node</button>
         <button id="clear-graph">Clear Graph</button>
         <button id="save-graph">Save Graph</button>
+        <button id="load-graph">Load Graph</button>
     </div>
-    <div id="canvas"></div>
-    <script src="/static/graph_builder.js"></script>
+    <div id="mode-indicator">Mode: None</div>
+    <div id="canvas-container">
+        <div id="canvas"></div>
+        <svg id="edges-svg"></svg>
+    </div>
+    <div id="value-assignment" style="display: none;">
+        <label for="node-value">Assign Value:</label>
+        <select id="node-value">
+            <option value="">Select</option>
+            <option value="0">🌑</option>
+            <option value="1">🌒</option>
+            <option value="2">🌓</option>
+            <option value="3">🌔</option>
+            <option value="4">🌕</option>
+            <option value="5">🌖</option>
+            <option value="6">🌗</option>
+            <option value="7">🌘</option>
+        </select>
+        <button id="assign-value">Assign</button>
+    </div>
+    <script src="{{ url_for('static', filename='graph_builder.js') }}"></script>
 </body>
 </html>
 

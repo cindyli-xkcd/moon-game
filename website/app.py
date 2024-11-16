@@ -1,10 +1,10 @@
 # app.py (Main Flask app)
 
-import json  # Import the json module
+import json
 from flask import Flask, send_from_directory, jsonify, request, render_template
 from graph_logic import Graph  # Import your existing game logic
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
 # Initialize the graph
 def initialize_graph():
@@ -24,10 +24,15 @@ def initialize_graph():
 
 graph = initialize_graph()
 
-# Serve the main page
+# Serve the main gameplay page
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html")  # Ensure 'templates/index.html' exists
+
+# Serve the graph builder page
+@app.route("/graph-builder")
+def graph_builder():
+    return render_template("graph_builder.html")  # Ensure 'templates/graph_builder.html' exists
 
 # API endpoint to fetch the game state
 @app.route("/state", methods=["GET"])
@@ -62,11 +67,6 @@ def place_value():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Serve static files
-@app.route("/<path:filename>")
-def static_files(filename):
-    return send_from_directory("static", filename)
-
 # API endpoint to reset the game
 @app.route("/reset", methods=["POST"])
 def reset_game():
@@ -76,11 +76,6 @@ def reset_game():
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
-# Serve the graph builder page
-@app.route("/graph-builder")
-def graph_builder():
-    return render_template("graph_builder.html")
 
 # API endpoint to save the graph
 @app.route("/save-graph", methods=["POST"])
@@ -94,6 +89,38 @@ def save_graph():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+# API endpoint to load the graph
+@app.route("/load-graph", methods=["GET"])
+def load_graph():
+    try:
+        with open("graph_data.json", "r") as f:
+            data = json.load(f)
+        
+        # Reinitialize the graph
+        global graph
+        graph = Graph()
+        
+        # Add nodes with values and positions
+        for node_id, node_info in data['nodes'].items():
+            graph.add_node(node_id)
+            graph.nodes[node_id].value = node_info['value']
+            graph.nodes[node_id].position = node_info['position']
+        
+        # Connect nodes
+        graph.edges = data['edges']
+        for edge in graph.edges:
+            from_node = graph.nodes.get(edge['from'])
+            to_node = graph.nodes.get(edge['to'])
+            if from_node and to_node:
+                graph.connect_nodes(from_node, to_node)
+        
+        return jsonify({"success": True, "graph": graph.to_dict()})  # Ensure `to_dict` method exists in your Graph class
+    except FileNotFoundError:
+        return jsonify({"success": False, "error": "No saved graph found."}), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True)
+
 
