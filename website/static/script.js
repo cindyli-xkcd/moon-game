@@ -112,7 +112,30 @@ function initializeGame() {
     document.addEventListener("keydown", handleKeydown); // Listen for keyboard events
     const turnIndicator = document.getElementById("turn-indicator");
     turnIndicator.innerText = `Player ${currentPlayer}'s turn`;
+
+    // Add event listener for reset button
+    const resetButton = document.getElementById("reset-button");
+    resetButton.addEventListener("click", resetGame);
 }
+
+async function resetGame() {
+    try {
+        const response = await fetch("/reset", { method: "POST" });
+        const data = await response.json();
+        if (data.success) {
+            currentPlayer = 1; // Reset to Player 1
+            selectedPhaseIndex = null; // Clear phase selection
+            document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
+            loadGameState(); // Reload the game board
+            unhighlightPhases(); // Clear highlighted buttons
+        } else {
+            alert("Error resetting the game: " + data.error);
+        }
+    } catch (error) {
+        console.error("Error resetting the game:", error);
+    }
+}
+
 
 initializeGame();
 

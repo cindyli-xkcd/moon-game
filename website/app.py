@@ -55,5 +55,26 @@ def place_value():
 def static_files(filename):
            return send_from_directory("static", filename)
 
+@app.route("/reset", methods=["POST"])
+def reset_game():
+    try:
+        # Reset the game state
+        global graph
+        graph = Graph()  # Reinitialize the graph
+        # Recreate the nodes and connections if needed
+        for i in range(25):  # Example: 5x5 grid
+            graph.add_node(f"square-{i}")
+        for i in range(5):
+            for j in range(5):
+                if j < 4:  # Connect horizontally
+                    graph.connect_nodes(graph.nodes[f"square-{i*5+j}"], graph.nodes[f"square-{i*5+j+1}"])
+                if i < 4:  # Connect vertically
+                    graph.connect_nodes(graph.nodes[f"square-{i*5+j}"], graph.nodes[f"square-{(i+1)*5+j}"])
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
 if __name__ == "__main__":
     app.run(debug=True)
