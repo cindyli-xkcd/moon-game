@@ -1,4 +1,4 @@
-/* project/static/graph_builder.css */
+/* static/graph_builder.css */
 
 /* Toolbar Styles */
 #toolbar {
@@ -10,15 +10,15 @@
     margin-right: 5px;
     font-size: 16px;
     cursor: pointer;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    transition: background-color 0.2s, border-color 0.2s;
+    border: 2px solid #555;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+    transition: background-color 0.3s, border-color 0.3s;
 }
 
 #toolbar button:hover {
-    background-color: #f0f0f0;
-    border-color: #999;
+    background-color: #e0e0e0;
+    border-color: #333;
 }
 
 /* Mode Indicator Styles */
@@ -32,6 +32,7 @@
     border-radius: 5px;
     font-size: 16px;
     z-index: 20;
+    transition: background-color 0.3s;
 }
 
 /* Canvas Container Styles */
@@ -41,23 +42,24 @@
     height: 600px;
     border: 2px solid #ccc;
     background-color: #f9f9f9;
+    overflow: hidden;
 }
 
 #canvas {
     position: absolute;
     width: 100%;
     height: 100%;
-    z-index: 1;
 }
 
+/* Single SVG for Edges */
 #edges-svg {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Allows clicks to pass through SVG */
-    z-index: 0;
+    pointer-events: none; /* Allow interactions on child elements */
+    z-index: 0; /* Behind nodes */
 }
 
 /* Node Styles */
@@ -73,6 +75,7 @@
     cursor: pointer;
     user-select: none;
     transition: background-color 0.3s, border-color 0.3s;
+    z-index: 1; /* Above edges */
 }
 
 .node.selected {
@@ -82,16 +85,14 @@
 /* Edge Styles */
 .edge {
     stroke: black;
-    stroke-width: 4; /* Increased stroke-width for easier clicking */
+    stroke-width: 2;
     cursor: pointer;
     transition: stroke 0.3s, stroke-width 0.3s;
-    pointer-events: all;
-
 }
 
 .edge:hover {
     stroke: orange;
-    stroke-width: 5; /* Further increased on hover */
+    stroke-width: 4;
 }
 
 /* Value Assignment Modal Styles */
@@ -105,7 +106,7 @@
     border: 2px solid #ccc;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    z-index: 10;
+    z-index: 30; /* Above everything else */
 }
 
 #value-assignment label {
@@ -123,10 +124,37 @@
     margin-left: 10px;
     font-size: 16px;
     cursor: pointer;
+    border: 2px solid #555;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+#value-assignment button:hover {
+    background-color: #e0e0e0;
+    border-color: #333;
 }
 
 /* Node Hover Effect */
 .node:hover {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Tooltip Styles (Optional) */
+.tooltip {
+    position: absolute;
+    background-color: #333;
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 40;
+}
+
+.tooltip.visible {
+    opacity: 1;
 }
 

@@ -1,4 +1,4 @@
-// project/static/graph_builder.js
+// static/graph_builder.js
 
 // Unique ID for nodes
 let nodeId = 0;
@@ -20,6 +20,7 @@ const valueAssignmentDiv = document.getElementById("value-assignment");
 const assignValueButton = document.getElementById("assign-value");
 const nodeValueSelect = document.getElementById("node-value");
 const modeIndicator = document.getElementById("mode-indicator"); // Mode display element
+const tooltip = document.getElementById("tooltip"); // Tooltip element
 
 // Variables to handle dragging
 let isDragging = false;
@@ -69,8 +70,8 @@ function addNode() {
     node.className = "node";
     node.id = `node-${nodeId}`;
     // Position the node randomly within the canvas boundaries
-    node.style.top = `${Math.random() * (canvas.clientHeight - 50)}px`;
-    node.style.left = `${Math.random() * (canvas.clientWidth - 50)}px`;
+    node.style.top = `${Math.random() * (canvas.clientHeight - 90)}px`;
+    node.style.left = `${Math.random() * (canvas.clientWidth - 90)}px`;
     node.innerText = nodeId;
 
     node.dataset.value = null; // Initially, no value assigned
@@ -82,8 +83,8 @@ function addNode() {
         value: null,
         neighbors: [],
         position: {
-            top: node.style.top,
-            left: node.style.left
+            top: parseInt(node.style.top),
+            left: parseInt(node.style.left)
         }
     };
 
@@ -119,19 +120,20 @@ function drawEdge(fromNodeId, toNodeId) {
 
     if (!fromNode || !toNode) return;
 
-    const fromRect = fromNode.getBoundingClientRect();
-    const toRect = toNode.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
+    // Calculate positions based on node positions
+    const fromLeft = graph.nodes[fromNodeId].position.left;
+    const fromTop = graph.nodes[fromNodeId].position.top;
+    const toLeft = graph.nodes[toNodeId].position.left;
+    const toTop = graph.nodes[toNodeId].position.top;
 
-    // Calculate center positions relative to the canvas
-    const x1 = fromRect.left + fromRect.width / 2 - canvasRect.left;
-    const y1 = fromRect.top + fromRect.height / 2 - canvasRect.top;
-    const x2 = toRect.left + toRect.width / 2 - canvasRect.left;
-    const y2 = toRect.top + toRect.height / 2 - canvasRect.top;
+    // Assuming node size is 50px x 50px, so center is +25px
+    const x1 = fromLeft + 25;
+    const y1 = fromTop + 25;
+    const x2 = toLeft + 25;
+    const y2 = toTop + 25;
 
-    // Create a unique identifier for the edge based on sorted node IDs
-    const sortedIds = [fromNodeId, toNodeId].sort();
-    const edgeId = `edge-${sortedIds[0]}-${sortedIds[1]}`;
+    // Create a unique identifier for the edge
+    const edgeId = `edge-${fromNodeId}-${toNodeId}`;
 
     // Check if the edge already exists in the DOM to prevent duplicates
     if (document.getElementById(edgeId)) return;
@@ -142,20 +144,16 @@ function drawEdge(fromNodeId, toNodeId) {
     line.setAttribute("y1", y1);
     line.setAttribute("x2", x2);
     line.setAttribute("y2", y2);
-    line.setAttribute("stroke", "black");
-    line.setAttribute("stroke-width", "2");
     line.classList.add("edge"); // Add class for edge styling
 
-    // **Enable Edge Clickability**
-    line.style.pointerEvents = "auto"; // Allow the edge to be clickable
+    // Enable pointer events for the line
+    line.style.pointerEvents = "stroke";
 
     // Make edges clickable for deletion in delete mode
     line.addEventListener("click", (event) => {
         if (currentMode === 'delete') {
             event.stopPropagation(); // Prevent canvas click from triggering
-            const fromId = sortedIds[0];
-            const toId = sortedIds[1];
-            deleteEdge(fromId, toId);
+            deleteEdge(fromNodeId, toNodeId);
         }
     });
 
@@ -249,8 +247,8 @@ function drag(event) {
     currentNode.style.top = `${newTop}px`;
 
     // Update the graph data with new position
-    graph.nodes[currentNode.id].position.left = `${newLeft}px`;
-    graph.nodes[currentNode.id].position.top = `${newTop}px`;
+    graph.nodes[currentNode.id].position.left = newLeft;
+    graph.nodes[currentNode.id].position.top = newTop;
 
     // Update edges to reflect new node positions
     updateEdges();
@@ -283,10 +281,10 @@ function handleNodeClick(event) {
     if (currentMode === 'connect') {
         if (!selectedNode) {
             selectedNode = node;
-            node.style.borderColor = "red"; // Highlight selected node
+            node.classList.add("selected"); // Highlight selected node
         } else if (selectedNode !== node) {
             connectNodes(selectedNode.id, node.id);
-            selectedNode.style.borderColor = "#555"; // Reset selection
+            selectedNode.classList.remove("selected"); // Reset selection
             selectedNode = null;
         }
     } else if (currentMode === 'delete') {
@@ -326,7 +324,7 @@ function assignValueToNode() {
  */
 function deselectNode() {
     if (selectedNode) {
-        selectedNode.style.borderColor = "#555";
+        selectedNode.classList.remove("selected");
         selectedNode = null;
     }
 }
@@ -355,8 +353,8 @@ function saveGraph() {
         const nodeElement = document.getElementById(nodeIdKey);
         if (nodeElement) {
             graph.nodes[nodeIdKey].position = {
-                top: nodeElement.style.top,
-                left: nodeElement.style.left
+                top: parseInt(nodeElement.style.top),
+                left: parseInt(nodeElement.style.left)
             };
         }
     }
@@ -399,8 +397,8 @@ function loadGraph() {
                     const node = document.createElement("div");
                     node.className = "node";
                     node.id = nodeIdKey;
-                    node.style.top = nodeInfo.position.top;
-                    node.style.left = nodeInfo.position.left;
+                    node.style.top = `${nodeInfo.position.top}px`;
+                    node.style.left = `${nodeInfo.position.left}px`;
                     node.innerText = nodeInfo.value !== null ? moonPhases[nodeInfo.value] : nodeIdKey.split('-')[1];
 
                     node.dataset.value = nodeInfo.value;
@@ -413,7 +411,10 @@ function loadGraph() {
                         id: node.id,
                         value: nodeInfo.value,
                         neighbors: nodeInfo.neighbors,
-                        position: nodeInfo.position
+                        position: {
+                            top: nodeInfo.position.top,
+                            left: nodeInfo.position.left
+                        }
                     };
 
                     // Make node draggable and interactive
@@ -444,12 +445,21 @@ function loadGraph() {
  */
 function deleteNode(nodeId) {
     const connectedEdges = graph.edges.filter(edge => edge.from === nodeId || edge.to === nodeId).length;
-
-    // **Conditional Confirmation Prompt**
+    
+	// **Conditional Confirmation Prompt**
     if (connectedEdges >= 3) {
-        if (!confirm(`Are you sure you want to delete ${nodeId} and all its connected edges?`)) {
-            return;
-        }
+	    // Show confirmation prompt
+	    const confirmDeletion = confirm(`Are you sure you want to delete ${nodeId} and all its connected edges?`);
+
+            // Cancel the deletion, reset the mode to normal
+            currentMode = null; // Reset to normal mode
+            updateModeIndicator(); // Update the mode indicator to reflect the normal mode
+	if(!confirmDeletion) {
+            currentMode = null; // Reset to normal mode
+            updateModeIndicator(); // Update the mode indicator to reflect the normal mode
+            return; // Exit the function early without deleting anything
+	}
+        
     }
 
     // Remove the node from the DOM
@@ -483,6 +493,7 @@ function deleteEdge(fromNodeId, toNodeId) {
     const edgeId = `edge-${sortedFrom}-${sortedTo}`;
 
     // **Optional Confirmation Prompt for Edge Deletion**
+    // Uncomment the lines below if you want to add confirmation prompts for edge deletions:
     /*
     if (!confirm(`Are you sure you want to delete the edge between ${sortedFrom} and ${sortedTo}?`)) {
         return;
