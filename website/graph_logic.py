@@ -129,5 +129,15 @@ class Graph:
                 }
                 for name, node in self.nodes.items()
             },
-            "edges": self.edges  # Assuming edges are stored as list of dicts with 'from' and 'to'
+            "edges": self.edges
         }
+
+    @staticmethod
+    def from_dict(data):
+        new_graph = Graph()
+        for node_id, node_info in data['nodes'].items():
+            new_graph.add_node(node_id)
+            new_graph.nodes[node_id].value = node_info['value']
+            new_graph.nodes[node_id].position = node_info['position']
+        new_graph.edges = data['edges']
+        return new_graph

@@ -1,11 +1,11 @@
-<!-- project/templates/graph_builder.html -->
+<!-- templates/graph_builder.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Graph Builder</title>
-    <!-- Correctly link to graph_builder.css -->
+    <!-- Link to the external CSS file -->
     <link rel="stylesheet" href="{{ url_for('static', filename='graph_builder.css') }}">
 </head>
 <body>
@@ -19,7 +19,7 @@
     <div id="mode-indicator">Mode: None</div>
     <div id="canvas-container">
         <div id="canvas"></div>
-        <svg id="edges-svg"></svg>
+        <svg id="edges-svg"></svg> <!-- Single SVG for edges -->
     </div>
     <div id="value-assignment" style="display: none;">
         <label for="node-value">Assign Value:</label>
@@ -36,6 +36,9 @@
         </select>
         <button id="assign-value">Assign</button>
     </div>
+    <!-- Optional Tooltip Element -->
+    <div id="tooltip" class="tooltip"></div>
+    <!-- Link to the external JavaScript file -->
     <script src="{{ url_for('static', filename='graph_builder.js') }}"></script>
 </body>
 </html>
