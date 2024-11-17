@@ -1,5 +1,8 @@
 from flask import Flask, jsonify, request, render_template
 from graph_logic import Graph
+from score_tracker import ScoreTracker
+from strategies.phase_pair import PhasePair
+from strategies.full_moon_pair import FullMoonPair
 
 app = Flask(__name__)
 
@@ -19,12 +22,16 @@ for i in range(5):
         if i < 4:  # Connect bottom neighbor
             graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
 
+# Initialize the ScoreTracker
+score_tracker = ScoreTracker()
 
-# Serve the main game page (index.html)
+# Initialize scoring modules
+phase_pair_module = PhasePair()
+full_moon_pair_module = FullMoonPair()
+
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/state", methods=["GET"])
 def get_state():
@@ -35,8 +42,13 @@ def get_state():
 def place_value():
     """Place a moon phase on a specific node and update the graph."""
     data = request.json
+    player = data["player"]
     node_name = data["node_name"]
     value = data["value"]
+
+    # Check if required keys are in the request
+    if "player" not in data or "node_name" not in data or "value" not in data:
+        return jsonify({"success": False, "error": "Missing required fields in the request."})
 
     # Check if the game is over (no empty squares left)
     if all(node.value is not None for node in graph.nodes.values()):
@@ -48,11 +60,20 @@ def place_value():
             return jsonify({"success": False, "error": "Node already occupied"})  # Prevent placing on an occupied node
 
         node.add_value(value)  # Set the value of the node
-        return jsonify({"success": True})
+
+        # Check for Phase Pairs and Full Moon Pairs
+        points_from_phase, claimed_cards_from_phase = score_tracker.update_score_for_pair(player, phase_pair_module, node)
+        points_from_full_moon, claimed_cards_from_full_moon = score_tracker.update_score_for_pair(player, full_moon_pair_module, node)
+
+        # Return the points scored and the claimed cards
+        return jsonify({
+            "success": True,
+            "points": points_from_phase + points_from_full_moon,
+            "claimed_cards": [card.name for card in claimed_cards_from_phase + claimed_cards_from_full_moon]
+        })
+
     else:
         return jsonify({"success": False, "error": "Node not found"})
-
-
 
 @app.route("/reset", methods=["POST"])
 def reset_game():
@@ -73,19 +94,6 @@ def reset_game():
                 graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
 
     return jsonify({"success": True})
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)

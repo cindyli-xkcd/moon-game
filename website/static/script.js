@@ -48,7 +48,10 @@ async function handleSquareClick(squareId) {
         const response = await fetch("/place", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ node_name: squareId, value: selectedPhaseIndex }),
+            body: JSON.stringify({ 
+		    player: currentPlayer,
+		    node_name: squareId, 
+		    value: selectedPhaseIndex }),
         });
 
         const data = await response.json();
