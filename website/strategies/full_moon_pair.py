@@ -23,7 +23,7 @@ class FullMoonPair:
             # Ensure both node and neighbor have valid values
             if node.value is not None and neighbor.value is not None:
                 if (neighbor.value + node.value) == 7:  # Check if the sum of phases equals 7
-                    points += 1  # Award 1 point for each matching pair
+                    points += 2  # Award 1 point for each matching pair
                     claimed_cards.append(neighbor)  # Add the matching node to the claimed cards
 
         # If there are valid full moon pairs, the played node is also claimed

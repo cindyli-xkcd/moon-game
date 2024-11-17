@@ -138,6 +138,35 @@ function handleKeydown(event) {
     }
 }
 
+
+// Function to fetch and display the current scores
+async function loadScores() {
+    try {
+        const response = await fetch("/scores");
+        const scores = await response.json();
+        document.getElementById("player1-points").innerText = scores["1"]; // Update Player 1 score
+        document.getElementById("player2-points").innerText = scores["2"]; // Update Player 2 score
+    } catch (error) {
+        console.error("Error fetching scores:", error);
+    }
+}
+
+// Call loadScores whenever the game state is updated
+async function loadGameState() {
+    try {
+        const response = await fetch("/state");
+        const state = await response.json();
+        renderGameBoard(state);  // Function to render the game board (existing code)
+        loadScores();  // Call to update the scores after loading the game state
+    } catch (error) {
+        console.error("Error fetching game state:", error);
+    }
+}
+
+// Call loadScores when the page first loads
+document.addEventListener("DOMContentLoaded", loadScores);
+
+
 // Initialize the game
 function initializeGame() {
     createPhaseButtons();

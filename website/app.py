@@ -95,6 +95,20 @@ def reset_game():
 
     return jsonify({"success": True})
 
+
+@app.route("/scores", methods=["GET"])
+def get_scores():
+    """Fetch and return the current scores of the players."""
+    return jsonify(score_tracker.get_scores())  # Get scores from ScoreTracker
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
 
