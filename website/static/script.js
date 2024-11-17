@@ -1,5 +1,3 @@
-/* script.js (game logic) */
-
 let currentPlayer = 1; // Start with Player 1
 const moonPhases = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 let selectedPhaseIndex = 0;
@@ -20,7 +18,7 @@ function renderGameBoard(state) {
     const gameBoard = document.getElementById("game-board");
     gameBoard.innerHTML = "";
 
-    Object.entries(state).forEach(([squareId, data]) => {
+    Object.entries(state.nodes).forEach(([squareId, data]) => {
         const square = document.createElement("div");
         square.id = squareId;
         square.className = "square";
@@ -37,13 +35,26 @@ async function handleSquareClick(squareId) {
         return;
     }
 
+    // Fetch the current game state to check if the square is empty
     try {
-        const response = await fetch("/place", {
+        const response = await fetch("/state");
+        const state = await response.json();
+        const node = state.nodes[squareId];
+
+        // Check if the node is already occupied
+        if (node.value !== null) {
+            alert("This square is already occupied!");
+            return;
+        }
+
+        // Proceed with placing the moon phase if the square is empty
+        const placeResponse = await fetch("/place", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ node_name: squareId, value: selectedPhaseIndex }),
         });
-        const data = await response.json();
+
+        const data = await placeResponse.json();
         if (data.success) {
             loadGameState();
             unhighlightPhases(); // Unhighlight phase buttons after a move
@@ -55,6 +66,8 @@ async function handleSquareClick(squareId) {
         console.error("Error placing phase:", error);
     }
 }
+
+
 
 // Create phase selection buttons
 function createPhaseButtons() {
@@ -135,7 +148,6 @@ async function resetGame() {
         console.error("Error resetting the game:", error);
     }
 }
-
 
 initializeGame();
 

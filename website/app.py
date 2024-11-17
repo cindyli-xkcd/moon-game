@@ -1,126 +1,75 @@
-# app.py (Main Flask app)
+from flask import Flask, jsonify, request, render_template
+from graph_logic import Graph
 
-import json
-from flask import Flask, send_from_directory, jsonify, request, render_template
-from graph_logic import Graph  # Import your existing game logic
+app = Flask(__name__)
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+# Create the graph
+graph = Graph()
 
-# Initialize the graph
-def initialize_graph():
-    new_graph = Graph()
-    for i in range(25):  # Create a 5x5 grid of nodes
-        new_graph.add_node(f"square-{i}")
-    
-    # Connect the nodes in a grid pattern
-    for i in range(5):  # Rows
-        for j in range(5):  # Columns
-            if j < 4:  # Connect horizontally
-                new_graph.connect_nodes(new_graph.nodes[f"square-{i*5+j}"], new_graph.nodes[f"square-{i*5+j+1}"])
-            if i < 4:  # Connect vertically
-                new_graph.connect_nodes(new_graph.nodes[f"square-{i*5+j}"], new_graph.nodes[f"square-{(i+1)*5+j}"])
-    
-    return new_graph
+# Initialize a 5x5 grid of nodes and connect them
+for i in range(25):
+    graph.add_node(f"square-{i}", position=(i // 5, i % 5))  # Position as (row, col)
 
-graph = initialize_graph()
+# Connect the nodes (adjacent neighbors)
+for i in range(5):
+    for j in range(5):
+        node_name = f"square-{i * 5 + j}"
+        if j < 4:  # Connect right neighbor
+            graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{i * 5 + j + 1}"])
+        if i < 4:  # Connect bottom neighbor
+            graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
 
-# Serve the main gameplay page
+
+# Serve the main game page (index.html)
 @app.route("/")
 def index():
-    return render_template("index.html")  # Ensure 'templates/index.html' exists
+    return render_template("index.html")
 
-# Serve the graph builder page
-@app.route("/graph-builder")
-def graph_builder():
-    return render_template("graph_builder.html")  # Ensure 'templates/graph_builder.html' exists
 
-# API endpoint to fetch the game state
 @app.route("/state", methods=["GET"])
 def get_state():
-    state = {
-        name: {
-            "value": node.value,
-            "neighbors": [neighbor.name for neighbor in node.neighbors],
-        }
-        for name, node in graph.nodes.items()
-    }
-    return jsonify(state)
+    """Fetch and return the current state of the graph (nodes and their values)."""
+    return jsonify(graph.to_dict())
 
-# API endpoint to handle player moves
 @app.route("/place", methods=["POST"])
 def place_value():
-    data = request.get_json()
-    node_name = data.get("node_name")
-    value = data.get("value")
+    """Place a moon phase on a specific node and update the graph."""
+    data = request.json
+    node_name = data["node_name"]
+    value = data["value"]
 
-    if not node_name or value is None:
-        return jsonify({"success": False, "error": "Invalid data provided."}), 400
-
-    try:
-        node = graph.nodes[node_name]
-        node.add_value(value, graph)
+    node = graph.nodes.get(node_name)
+    if node:
+        if node.value is not None:
+            return jsonify({"success": False, "error": "Node already occupied"})  # Prevent placing on an occupied node
+        
+        node.add_value(value)  # Set the value of the node
         return jsonify({"success": True})
-    except KeyError:
-        return jsonify({"success": False, "error": f"Node '{node_name}' does not exist."}), 404
-    except ValueError as ve:
-        return jsonify({"success": False, "error": str(ve)}), 400
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    else:
+        return jsonify({"success": False, "error": "Node not found"})
 
-# API endpoint to reset the game
+
+
 @app.route("/reset", methods=["POST"])
 def reset_game():
+    """Reset the game state by reinitializing the graph."""
     global graph
-    try:
-        graph = initialize_graph()  # Reinitialize the graph
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    graph = Graph()  # Reinitialize the graph
+    
+    for i in range(25):
+        graph.add_node(f"square-{i}", position=(i // 5, i % 5))  # Reset positions as well
+    
+    # Reconnect the nodes
+    for i in range(5):
+        for j in range(5):
+            node_name = f"square-{i * 5 + j}"
+            if j < 4:
+                graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{i * 5 + j + 1}"])
+            if i < 4:
+                graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
 
-# API endpoint to save the graph
-@app.route("/save-graph", methods=["POST"])
-def save_graph():
-    data = request.get_json()
-    try:
-        # Save graph to a JSON file
-        with open("graph_data.json", "w") as f:
-            json.dump(data, f, indent=2)
-        return jsonify({"success": True, "message": "Graph saved successfully!"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# API endpoint to load the graph
-@app.route("/load-graph", methods=["GET"])
-def load_graph():
-    try:
-        with open("graph_data.json", "r") as f:
-            data = json.load(f)
-        
-        # Reinitialize the graph
-        global graph
-        graph = Graph()
-        
-        # Add nodes with values and positions
-        for node_id, node_info in data['nodes'].items():
-            graph.add_node(node_id)
-            graph.nodes[node_id].value = node_info['value']
-            graph.nodes[node_id].position = node_info['position']
-        
-        # Connect nodes
-        graph.edges = data['edges']
-        for edge in graph.edges:
-            from_node = graph.nodes.get(edge['from'])
-            to_node = graph.nodes.get(edge['to'])
-            if from_node and to_node:
-                graph.connect_nodes(from_node, to_node)
-        
-        return jsonify({"success": True, "graph": graph.to_dict()})  # Ensure `to_dict` method exists in your Graph class
-    except FileNotFoundError:
-        return jsonify({"success": False, "error": "No saved graph found."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    return jsonify({"success": True})
 
 if __name__ == "__main__":
     app.run(debug=True)
-
 
