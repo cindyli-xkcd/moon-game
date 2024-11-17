@@ -38,11 +38,15 @@ def place_value():
     node_name = data["node_name"]
     value = data["value"]
 
+    # Check if the game is over (no empty squares left)
+    if all(node.value is not None for node in graph.nodes.values()):
+        return jsonify({"success": False, "error": "Game over! The board is full."})
+
     node = graph.nodes.get(node_name)
     if node:
         if node.value is not None:
             return jsonify({"success": False, "error": "Node already occupied"})  # Prevent placing on an occupied node
-        
+
         node.add_value(value)  # Set the value of the node
         return jsonify({"success": True})
     else:
@@ -69,6 +73,19 @@ def reset_game():
                 graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
 
     return jsonify({"success": True})
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

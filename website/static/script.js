@@ -8,10 +8,19 @@ async function loadGameState() {
         const response = await fetch("/state");
         const state = await response.json();
         renderGameBoard(state);
+        
+        // Check if the game is over (board is full)
+        const isBoardFull = Object.values(state.nodes).every(node => node.value !== null);
+        
+        if (isBoardFull) {
+            alert("Game Over! The board is full.");
+            disableBoard(); // Disable further interactions
+        }
     } catch (error) {
         console.error("Error fetching game state:", error);
     }
 }
+
 
 // Render the game board
 function renderGameBoard(state) {
@@ -35,37 +44,45 @@ async function handleSquareClick(squareId) {
         return;
     }
 
-    // Fetch the current game state to check if the square is empty
     try {
-        const response = await fetch("/state");
-        const state = await response.json();
-        const node = state.nodes[squareId];
-
-        // Check if the node is already occupied
-        if (node.value !== null) {
-            alert("This square is already occupied!");
-            return;
-        }
-
-        // Proceed with placing the moon phase if the square is empty
-        const placeResponse = await fetch("/place", {
+        const response = await fetch("/place", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ node_name: squareId, value: selectedPhaseIndex }),
         });
 
-        const data = await placeResponse.json();
+        const data = await response.json();
+
         if (data.success) {
             loadGameState();
             unhighlightPhases(); // Unhighlight phase buttons after a move
             switchPlayer(); // Switch the player's turn
         } else {
-            alert("Error placing phase: " + data.error);
+            if (data.error === "Game over! The board is full.") {
+                alert("Game Over! The board is full.");
+                // Optionally, disable further clicks or display a reset button
+                disableBoard();
+            } else {
+                alert("Error placing phase: " + data.error);
+            }
         }
     } catch (error) {
         console.error("Error placing phase:", error);
     }
 }
+
+// Disable further actions when the game is over
+function disableBoard() {
+    // Disable further clicks on squares
+    document.querySelectorAll(".square").forEach(square => {
+        square.removeEventListener("click", handleSquareClick);
+    });
+
+    // Optionally, show the reset button to restart the game
+    const resetButton = document.getElementById("reset-button");
+    resetButton.style.display = "block"; // Show reset button after game ends
+}
+
 
 
 
