@@ -1,0 +1,73 @@
+{
+  "nodes": {
+    "node-0": {
+      "id": "node-0",
+      "value": null,
+      "neighbors": [
+        "node-2",
+        "node-1"
+      ],
+      "position": {
+        "top": 43,
+        "left": 630
+      }
+    },
+    "node-1": {
+      "id": "node-1",
+      "value": null,
+      "neighbors": [
+        "node-4",
+        "node-0"
+      ],
+      "position": {
+        "top": 207,
+        "left": 525
+      }
+    },
+    "node-2": {
+      "id": "node-2",
+      "value": null,
+      "neighbors": [
+        "node-0"
+      ],
+      "position": {
+        "top": 199,
+        "left": 285
+      }
+    },
+    "node-3": {
+      "id": "node-3",
+      "value": null,
+      "neighbors": [],
+      "position": {
+        "top": 411,
+        "left": 649
+      }
+    },
+    "node-4": {
+      "id": "node-4",
+      "value": null,
+      "neighbors": [
+        "node-1"
+      ],
+      "position": {
+        "top": 282,
+        "left": 499
+      }
+    }
+  },
+  "edges": [
+    {
+      "from": "node-0",
+      "to": "node-2"
+    },
+    {
+      "from": "node-1",
+      "to": "node-4"
+    },
+    {
+      "from": "node-0",
+      "to": "node-1"
+    }
+  ]
+}
