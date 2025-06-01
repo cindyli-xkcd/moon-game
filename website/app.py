@@ -113,6 +113,16 @@ def get_final_scores():
     return jsonify(score_tracker.finalize_scores())
 
 
+@app.route("/debug", methods=["GET"])
+def debug_state():
+    return jsonify({
+        "scores": score_tracker.get_scores(),
+        "claimed_cards": {
+            "1": score_tracker.get_claimed_cards("1"),
+            "2": score_tracker.get_claimed_cards("2")
+        },
+        "graph": graph.to_dict()
+    })
 
 
 
