@@ -11,10 +11,30 @@ async function loadGameState() {
 
         // Check if the game is over (board is full)
         const isBoardFull = Object.values(state.graph.nodes).every(node => node.value !== null);
-        if (isBoardFull) {
-            alert("Game Over! The board is full.");
+
+	if (isBoardFull) {
             disableBoard();
-        }
+        
+            const res = await fetch("/final_scores");
+            const data = await res.json();
+        
+            const finalScoreDiv = document.getElementById("final-scores");
+            finalScoreDiv.style.display = "block";
+            finalScoreDiv.innerHTML = `
+                <h3>Game Over</h3>
+                <p><strong>Player 1</strong><br>
+                Base: ${data.base_scores["1"]} &nbsp;&nbsp;
+                Bonus: ${data.bonus_scores["1"]} &nbsp;&nbsp;
+                Total: ${data.final_scores["1"]}</p>
+            
+                <p><strong>Player 2</strong><br>
+                Base: ${data.base_scores["2"]} &nbsp;&nbsp;
+                Bonus: ${data.bonus_scores["2"]} &nbsp;&nbsp;
+                Total: ${data.final_scores["2"]}</p>
+            `;
+            
+}
+
 
         loadScores();  
     } catch (error) {
@@ -211,6 +231,9 @@ async function resetGame() {
         } else {
             alert("Error resetting the game: " + data.error);
         }
+	document.getElementById("final-scores").style.display = "none";
+        document.getElementById("final-scores").innerHTML = "";
+
     } catch (error) {
         console.error("Error resetting the game:", error);
     }

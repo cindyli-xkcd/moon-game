@@ -90,3 +90,15 @@ body {
   border: 2px solid blue;
 }
 
+#final-scores {
+    padding: 15px;
+    background-color: #fff8dc;
+    border: 2px solid #aaa;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: left;
+    width: fit-content;
+    margin: 0 auto;
+}
+

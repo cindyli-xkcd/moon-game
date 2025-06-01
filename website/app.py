@@ -108,6 +108,9 @@ def get_scores():
     return jsonify(score_tracker.get_scores())  # Get scores from ScoreTracker
 
 
+@app.route("/final_scores", methods=["GET"])
+def get_final_scores():
+    return jsonify(score_tracker.finalize_scores())
 
 
 

@@ -22,6 +22,28 @@ class ScoreTracker:
     def get_claimed_cards(self, player):
         return [square for square, owner in self.claimed_cards.items() if owner == player]
 
+
+    def finalize_scores(self):
+        """Return base scores, bonus scores from claimed cards, and final totals without mutating internal state."""
+        base_scores = self.get_scores()
+    
+        bonus_scores = {
+            player: len(self.get_claimed_cards(player))
+            for player in base_scores
+        }
+    
+        final_scores = {
+            player: base_scores[player] + bonus_scores[player]
+            for player in base_scores
+        }
+    
+        return {
+            "base_scores": base_scores,
+            "bonus_scores": bonus_scores,
+            "final_scores": final_scores
+        }
+
+
     def reset(self):
         self.scores = {1: 0, 2: 0}
         self.claimed_cards = {}
