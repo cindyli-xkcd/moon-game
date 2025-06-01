@@ -35,8 +35,12 @@ def index():
 
 @app.route("/state", methods=["GET"])
 def get_state():
-    """Fetch and return the current state of the graph (nodes and their values)."""
-    return jsonify(graph.to_dict())
+    return jsonify({
+        "graph": graph.to_dict(),
+        "score": score_tracker.get_scores(),
+        "claimed_cards": score_tracker.claimed_cards
+    })
+
 
 @app.route("/place", methods=["POST"])
 def place_value():
@@ -92,6 +96,8 @@ def reset_game():
                 graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{i * 5 + j + 1}"])
             if i < 4:
                 graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
+
+    score_tracker.reset()
 
     return jsonify({"success": True})
 

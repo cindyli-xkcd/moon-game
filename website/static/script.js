@@ -8,26 +8,37 @@ async function loadGameState() {
         const response = await fetch("/state");
         const state = await response.json();
         renderGameBoard(state);
-        
+
         // Check if the game is over (board is full)
-        const isBoardFull = Object.values(state.nodes).every(node => node.value !== null);
-        
+        const isBoardFull = Object.values(state.graph.nodes).every(node => node.value !== null);
         if (isBoardFull) {
             alert("Game Over! The board is full.");
-            disableBoard(); // Disable further interactions
+            disableBoard();
         }
+
+        loadScores();  
     } catch (error) {
         console.error("Error fetching game state:", error);
     }
 }
 
 
+
 // Render the game board
 function renderGameBoard(state) {
+    console.log("GRAPH NODES", state.graph.nodes);
+    if (!state.graph || !state.graph.nodes) {
+        alert("Graph data is malformed");
+        return;
+    }
+    console.log("FULL STATE", state);
+
     const gameBoard = document.getElementById("game-board");
     gameBoard.innerHTML = "";
+    
+    const claimedCards = state.claimed_cards;
 
-    const sortedSquares = Object.entries(state.nodes).sort((a, b) => {
+    const sortedSquares = Object.entries(state.graph.nodes).sort((a, b) => {
       const [rowA, colA] = a[1].position;
       const [rowB, colB] = b[1].position;
       return rowA - rowB || colA - colB;
@@ -41,6 +52,14 @@ function renderGameBoard(state) {
         <div style="font-size: 24px;">${data.value !== null ? moonPhases[data.value] : ""}</div>
         <div style="font-size: 10px; color: gray;">${squareId}</div>`;
       square.addEventListener("click", () => handleSquareClick(squareId));
+
+      // Add claimed visual indicator
+      if (claimedCards[squareId] === 1) {
+	      square.classList.add("claimed-by-1");
+      } else if (claimedCards[squareId] === 2) {
+	      square.classList.add("claimed-by-2");
+      }
+
       gameBoard.appendChild(square);
     });
 
@@ -160,17 +179,7 @@ async function loadScores() {
     }
 }
 
-// Call loadScores whenever the game state is updated
-async function loadGameState() {
-    try {
-        const response = await fetch("/state");
-        const state = await response.json();
-        renderGameBoard(state);  // Function to render the game board (existing code)
-        loadScores();  // Call to update the scores after loading the game state
-    } catch (error) {
-        console.error("Error fetching game state:", error);
-    }
-}
+
 
 // Call loadScores when the page first loads
 document.addEventListener("DOMContentLoaded", loadScores);
