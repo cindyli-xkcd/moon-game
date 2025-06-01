@@ -32,6 +32,7 @@ body {
     background-color: #f0f0f0;
     cursor: pointer;
     transition: background-color 0.2s;
+    flex-direction: column;
 }
 
 .square:hover {

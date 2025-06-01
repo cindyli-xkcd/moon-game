@@ -27,14 +27,23 @@ function renderGameBoard(state) {
     const gameBoard = document.getElementById("game-board");
     gameBoard.innerHTML = "";
 
-    Object.entries(state.nodes).forEach(([squareId, data]) => {
-        const square = document.createElement("div");
-        square.id = squareId;
-        square.className = "square";
-        square.innerText = data.value !== null ? moonPhases[data.value] : "";
-        square.addEventListener("click", () => handleSquareClick(squareId));
-        gameBoard.appendChild(square);
+    const sortedSquares = Object.entries(state.nodes).sort((a, b) => {
+      const [rowA, colA] = a[1].position;
+      const [rowB, colB] = b[1].position;
+      return rowA - rowB || colA - colB;
     });
+    
+    sortedSquares.forEach(([squareId, data]) => {
+      const square = document.createElement("div");
+      square.id = squareId;
+      square.className = "square";
+      square.innerHTML = `
+        <div style="font-size: 24px;">${data.value !== null ? moonPhases[data.value] : ""}</div>
+        <div style="font-size: 10px; color: gray;">${squareId}</div>`;
+      square.addEventListener("click", () => handleSquareClick(squareId));
+      gameBoard.appendChild(square);
+    });
+
 }
 
 // Handle square clicks
