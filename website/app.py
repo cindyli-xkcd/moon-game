@@ -45,7 +45,7 @@ def get_state():
             "phase_pairs": score_tracker.phase_pairs,
             "full_moon_pairs": score_tracker.full_moon_pairs,
             "lunar_cycles": score_tracker.lunar_cycle_connections
-            }
+            },
     })
 
 
