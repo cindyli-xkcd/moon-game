@@ -17,7 +17,7 @@ body {
 .board {
     display: grid;
     grid-template-columns: repeat(5, 100px);
-    gap: 5px;
+    gap: 20px;
     margin: 20px auto;
 }
 
@@ -33,6 +33,8 @@ body {
     cursor: pointer;
     transition: background-color 0.2s;
     flex-direction: column;
+    position: relative;
+    z-index: 2;
 }
 
 .square:hover {
@@ -100,5 +102,19 @@ body {
     text-align: left;
     width: fit-content;
     margin: 0 auto;
+}
+
+#connections-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+#game-board {
+    position: relative;
+    z-index: 1;
+    padding: 10px;
 }
 

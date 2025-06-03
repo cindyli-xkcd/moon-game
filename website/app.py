@@ -38,7 +38,11 @@ def get_state():
     return jsonify({
         "graph": graph.to_dict(),
         "score": score_tracker.get_scores(),
-        "claimed_cards": score_tracker.claimed_cards
+        "claimed_cards": score_tracker.claimed_cards,
+        "connections": {
+            "phase_pairs": score_tracker.phase_pairs,
+            "full_moon_pairs": score_tracker.full_moon_pairs
+            }
     })
 
 

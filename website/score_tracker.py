@@ -6,6 +6,17 @@ class ScoreTracker:
     def __init__(self):
         self.scores = {1: 0, 2: 0}  # Initialize player scores
         self.claimed_cards = {}
+        self.phase_pairs = []
+        self.full_moon_pairs = []
+
+    def _pair_connections(self, node, claimed_nodes):
+        connections = []
+        for other in claimed_nodes:
+            if other != node:
+                pair = tuple(sorted([node.name, other.name]))
+                connections.append(pair)
+        return connections
+
 
     def update_score_for_pair(self, player, pair_scoring_module, node):
         """Update score when a pair is formed (Phase Pair or Full Moon Pair)."""
@@ -13,6 +24,14 @@ class ScoreTracker:
         self.scores[player] += points 
         for square in claimed_cards:
             self.claimed_cards[square.name] = player
+
+        if points > 0:
+            if pair_scoring_module.__class__.__name__ == "PhasePair":
+                self.phase_pairs.extend(self._pair_connections(node, claimed_cards))
+            elif pair_scoring_module.__class__.__name__ == "FullMoonPair":
+                self.full_moon_pairs.extend(self._pair_connections(node, claimed_cards))
+
+
         return points, claimed_cards  # Return the points and the claimed cards
 
     def get_scores(self):
@@ -47,4 +66,6 @@ class ScoreTracker:
     def reset(self):
         self.scores = {1: 0, 2: 0}
         self.claimed_cards = {}
+        self.phase_pairs = []
+        self.full_moon_pairs = []
 
