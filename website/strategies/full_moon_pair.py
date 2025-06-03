@@ -4,7 +4,7 @@ class FullMoonPair:
 
     def score_pair(self, player, node):
         """
-        Score a full moon pair (two nodes whose phases add up to 7) 
+        Score a full moon pair (two phases add up to a full moon)
         and return the points and claimed cards.
 
         Args:
@@ -22,14 +22,14 @@ class FullMoonPair:
         for neighbor in node.neighbors:
             # Ensure both node and neighbor have valid values
             if node.value is not None and neighbor.value is not None:
-                if (neighbor.value + node.value) == 7:  # Check if the sum of phases equals 7
-                    points += 2  # Award 1 point for each matching pair
-                    claimed_cards.append(neighbor)  # Add the matching node to the claimed cards
+                if abs(neighbor.value - node.value) == 4:  
+                    points += 2  
+                    claimed_cards.append(neighbor)  
 
         # If there are valid full moon pairs, the played node is also claimed
         if points > 0:
-            claimed_cards.append(node)  # Add the played node to the claimed cards
+            claimed_cards.append(node)  
             return points, claimed_cards
 
-        return 0, []  # No full moon pair, no points, no claimed cards
+        return 0, []  
 
