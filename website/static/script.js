@@ -138,6 +138,32 @@ function drawConnections(state) {
         }
     }
 
+    // Draw bold lines for lunar cycles
+    if (state.connections.lunar_cycles) {
+	console.log("Lunar cycles:", state.connections.lunar_cycles);
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 5;
+    
+        for (const [a, b] of state.connections.lunar_cycles) {
+            if (nodeCenters[a] && nodeCenters[b]) {
+                const ax = nodeCenters[a].x;
+                const ay = nodeCenters[a].y;
+                const bx = nodeCenters[b].x;
+                const by = nodeCenters[b].y;
+    
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(bx, by);
+                ctx.stroke();
+            }
+        }
+    
+        // Restore default style after
+        ctx.strokeStyle = "#aaa";
+        ctx.lineWidth = 2;
+    }
+
+
 
 }
 

@@ -3,6 +3,7 @@ from graph_logic import Graph
 from score_tracker import ScoreTracker
 from strategies.phase_pair import PhasePair
 from strategies.full_moon_pair import FullMoonPair
+from strategies.lunar_cycle import LunarCycle
 
 app = Flask(__name__)
 
@@ -28,6 +29,7 @@ score_tracker = ScoreTracker()
 # Initialize scoring modules
 phase_pair_module = PhasePair()
 full_moon_pair_module = FullMoonPair()
+lunar_cycle_module = LunarCycle()
 
 @app.route("/")
 def index():
@@ -41,7 +43,8 @@ def get_state():
         "claimed_cards": score_tracker.claimed_cards,
         "connections": {
             "phase_pairs": score_tracker.phase_pairs,
-            "full_moon_pairs": score_tracker.full_moon_pairs
+            "full_moon_pairs": score_tracker.full_moon_pairs,
+            "lunar_cycles": score_tracker.lunar_cycle_connections
             }
     })
 
@@ -72,6 +75,7 @@ def place_value():
         # Check for Phase Pairs and Full Moon Pairs
         points_from_phase, claimed_cards_from_phase = score_tracker.update_score_for_pair(player, phase_pair_module, node)
         points_from_full_moon, claimed_cards_from_full_moon = score_tracker.update_score_for_pair(player, full_moon_pair_module, node)
+        points_from_cycle, claimed_cards_from_cycle = score_tracker.update_score_for_cycle(player, lunar_cycle_module, node, graph)
 
         # Return the points scored and the claimed cards
         return jsonify({
