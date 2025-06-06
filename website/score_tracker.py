@@ -1,5 +1,4 @@
 # scoring.py
-from chain_tracking import find_chains_through_node, extract_connections_from_chains
 
 
 class ScoreTracker:
@@ -11,65 +10,88 @@ class ScoreTracker:
         self.full_moon_pairs = []
         self.lunar_cycle_chains = []
         self.lunar_cycle_connections = []
+        self.scoring_history = []
 
-    def _pair_connections(self, node, claimed_nodes):
-        connections = []
-        for other in claimed_nodes:
-            if other != node:
-                pair = tuple(sorted([node.name, other.name]))
-                connections.append(pair)
-        return connections
 
     def update_score_for_pair(self, player, pair_scoring_module, node):
-        """Update score when a pair is formed (Phase Pair or Full Moon Pair)."""
-        points, claimed_cards = pair_scoring_module.score_pair(player, node)  
-        self.scores[player] += points 
-        for square in claimed_cards:
-            self.claimed_cards[square.name] = player
-
-        if points > 0:
+        """
+        Update score when a PhasePair or FullMoonPair is scored.
+        Returns a list of individual scoring events.
+        """
+        scored_pairs, claimed_cards = pair_scoring_module.score_pair(player, node)
+    
+        # Record claimed card ownership
+        for card in claimed_cards:
+            self.claimed_cards[card.name] = player
+    
+        # Build and apply each scoring event
+        scoring_events = []
+        for item in scored_pairs:
+            pair = item["pair"]
+            points = item["points"]
+    
+            self.scores[player] += points
+    
             if pair_scoring_module.__class__.__name__ == "PhasePair":
-                self.phase_pairs.extend(self._pair_connections(node, claimed_cards))
+                self.phase_pairs.append(pair)
+                score_type = "phase_pair"
             elif pair_scoring_module.__class__.__name__ == "FullMoonPair":
-                self.full_moon_pairs.extend(self._pair_connections(node, claimed_cards))
-
-
-        return points, claimed_cards  # Return the points and the claimed cards
-
+                self.full_moon_pairs.append(pair)
+                score_type = "full_moon_pair"
+            else:
+                score_type = "pair"
+    
+            event = {
+                "player": player,
+                "type": score_type,
+                "structure": {"pair": pair, "points": points},
+                "claimed": [c.name for c in item["claimed"]],
+                "connections": [pair],
+                "points": points
+            }
+    
+            self.scoring_history.append(event)
+            scoring_events.append(event)
+    
+        return scoring_events
 
 
     def update_score_for_cycle(self, player, cycle_scoring_module, node, graph):
-        """Update score when a lunar cycle chain is formed."""
-        chains = find_chains_through_node(node, graph)
-        points, claimed_cards = cycle_scoring_module.score_cycle(player, node, graph)
-        self.scores[player] += points
-        for square in claimed_cards:
-            self.claimed_cards[square.name] = player
+        scored_chains = cycle_scoring_module.score_cycle(player, node, graph)
 
-        if points > 0:
-            self.lunar_cycle_chains.extend(chains)
+        scoring_events = []
+        for item in scored_chains:
+            points = item["points"]
+            claimed_nodes = item["claimed"]
 
-            new_connections = extract_connections_from_chains(chains)
-            for pair in new_connections:
+            self.scores[player] += points
+
+            for node in claimed_nodes:
+                self.claimed_cards[node.name] = player
+
+            # Update long-term storage
+            self.lunar_cycle_chains.append(item["chain"])
+            for pair in item["connections"]:
                 if pair not in self.lunar_cycle_connections:
                     self.lunar_cycle_connections.append(pair)
 
+            event = {
+                "player": player,
+                "type": "lunar_cycle",
+                "structure": {
+                    "chain": item["chain"],
+                    "points": points
+                },
+                "claimed": [n.name for n in claimed_nodes],
+                "connections": item["connections"],
+                "points": points
+            }
 
-        return points, claimed_cards
+            self.scoring_history.append(event)
+            scoring_events.append(event)
 
-    def extract_connections_from_chains(chains):
-        """
-        Given a list of chains (each a list of Node objects),
-        return sorted (a, b) tuples for all adjacent neighbors in each chain.
-        """
-        connections = set()
-        for chain in chains:
-            for i in range(len(chain) - 1):
-                a, b = chain[i], chain[i + 1]
-                if b in a.neighbors:
-                    pair = tuple(sorted([a.name, b.name]))
-                    connections.add(pair)
-        return list(connections)
+        return scoring_events
+
 
 
 
@@ -116,3 +138,8 @@ class ScoreTracker:
         self.full_moon_pairs = []
         self.lunar_cycle_chains = []
         self.lunar_cycle_connections = []
+        self.scoring_history = []
+
+
+
+

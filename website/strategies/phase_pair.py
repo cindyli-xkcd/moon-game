@@ -4,29 +4,29 @@ class PhasePair:
 
     def score_pair(self, player, node):
         """
-        Score a phase pair (same phase) and return the points and claimed cards.
-
-        Args:
-        - player: The player making the move.
-        - node: The node the player just placed a phase on.
-
-        Returns:
-        - points: The total points scored for this move.
-        - claimed_cards: The list of claimed cards (nodes).
+        Score a phase pair and return a list of dicts with:
+        - 'pair': the (a, b) tuple of node names
+        - 'points': points earned
+        - 'claimed': list of Node objects
+        Also return a list of unique claimed nodes
         """
-        points = 0
-        claimed_cards = []
+        scored_pairs = []
+        claimed_set = {}
 
-        # Look at all adjacent nodes to the current node
         for neighbor in node.neighbors:
-            if neighbor.value == node.value:  # Check if the phase matches
-                points += 1  # Award 1 point for each matching phase
-                claimed_cards.append(neighbor)  # Add the matching node to the claimed cards
+            if neighbor.value == node.value:
+                pair = tuple(sorted([node.name, neighbor.name]))
 
-        # If no matching adjacent nodes, return 0 points and empty claimed cards
-        if points > 0:
-            claimed_cards.append(node)  # The played node is also claimed
-            return points, claimed_cards
+                scored_pairs.append({
+                    "pair": pair,
+                    "points": 1,
+                    "claimed": [node, neighbor]  
+                })
 
-        return 0, []  
+                claimed_set[neighbor.name] = neighbor
+
+        if scored_pairs:
+            claimed_set[node.name] = node  
+
+        return scored_pairs, list(claimed_set.values())
 

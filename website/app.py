@@ -49,43 +49,54 @@ def get_state():
     })
 
 
+
 @app.route("/place", methods=["POST"])
 def place_value():
-    """Place a moon phase on a specific node and update the graph."""
     data = request.json
     player = data["player"]
     node_name = data["node_name"]
     value = data["value"]
 
-    # Check if required keys are in the request
     if "player" not in data or "node_name" not in data or "value" not in data:
         return jsonify({"success": False, "error": "Missing required fields in the request."})
 
-    # Check if the game is over (no empty squares left)
-    if all(node.value is not None for node in graph.nodes.values()):
-        return jsonify({"success": False, "error": "Game over! The board is full."})
-
     node = graph.nodes.get(node_name)
-    if node:
-        if node.value is not None:
-            return jsonify({"success": False, "error": "Node already occupied"})  # Prevent placing on an occupied node
-
-        node.add_value(value)  # Set the value of the node
-
-        # Check for Phase Pairs and Full Moon Pairs
-        points_from_phase, claimed_cards_from_phase = score_tracker.update_score_for_pair(player, phase_pair_module, node)
-        points_from_full_moon, claimed_cards_from_full_moon = score_tracker.update_score_for_pair(player, full_moon_pair_module, node)
-        points_from_cycle, claimed_cards_from_cycle = score_tracker.update_score_for_cycle(player, lunar_cycle_module, node, graph)
-
-        # Return the points scored and the claimed cards
-        return jsonify({
-            "success": True,
-            "points": points_from_phase + points_from_full_moon,
-            "claimed_cards": [card.name for card in claimed_cards_from_phase + claimed_cards_from_full_moon]
-        })
-
-    else:
+    if not node:
         return jsonify({"success": False, "error": "Node not found"})
+
+    if node.value is not None:
+        return jsonify({"success": False, "error": "Node already occupied"})
+
+    # ✅ Step 1: Place the value
+    node.add_value(value)
+
+    # ✅ Step 2: Score the move
+    phase_events = score_tracker.update_score_for_pair(player, phase_pair_module, node)
+    full_moon_events = score_tracker.update_score_for_pair(player, full_moon_pair_module, node)
+    cycle_events = score_tracker.update_score_for_cycle(player, lunar_cycle_module, node, graph)
+
+    all_events = phase_events + full_moon_events + cycle_events
+
+    # ✅ Step 3: Check if the board is now full
+    board_full = all(n.value is not None for n in graph.nodes.values())
+
+    return jsonify({
+        "success": True,
+        "events": all_events,
+        "game_over": board_full,
+    })
+
+
+
+
+
+
+
+
+
+
+
+
 
 @app.route("/reset", methods=["POST"])
 def reset_game():
@@ -116,9 +127,18 @@ def get_scores():
     return jsonify(score_tracker.get_scores())  # Get scores from ScoreTracker
 
 
+
 @app.route("/final_scores", methods=["GET"])
-def get_final_scores():
-    return jsonify(score_tracker.finalize_scores())
+def final_scores():
+    try:
+        result = score_tracker.finalize_scores()
+        return jsonify(result)
+    except Exception as e:
+        print("Error in /final_scores:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 
 @app.route("/debug", methods=["GET"])

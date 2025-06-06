@@ -120,12 +120,29 @@ body {
 
 
 .pulse {
-  animation: pulseAnimation 0.3s ease;
+  animation: pulseAnimation 0.8s ease;
 }
 
 @keyframes pulseAnimation {
   0%   { transform: scale(1); }
-  50%  { transform: scale(1.4); }
+  50%  { transform: scale(1.2); }
   100% { transform: scale(1); }
+}
+
+
+#bold-connections-canvas {
+    z-index: 9999;
+}
+
+
+
+
+.star {
+  font-size: 24px;
+  position: absolute;
+  transition: all 1.2s ease-out;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
 }
 
