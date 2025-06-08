@@ -1,3 +1,4 @@
+
 // =========================
 // 1. GLOBAL STATE & CONSTANTS
 // =========================
@@ -29,6 +30,32 @@ function pulseNodes(ids, duration = 600) {
 // =========================
 // 3. DRAWING LOGIC
 // =========================
+
+
+function rebuildBoldEdgesFromConnections(connections) {
+  const edges = [];
+
+  for (const chain of connections.lunar_cycles || []) {
+    for (let i = 0; i < chain.length - 1; i++) {
+      edges.push([chain[i], chain[i + 1]]);
+    }
+  }
+
+  return edges;
+}
+
+
+function applyClaimedCardStyles(claimedCards) {
+  for (const squareId in claimedCards) {
+    const square = document.getElementById(squareId);
+    if (square) {
+      square.classList.add(`claimed-by-${claimedCards[squareId]}`);
+    }
+  }
+}
+
+
+
 
 function resizeCanvasToBoard(canvas) {
     const gameBoard = document.getElementById("game-board");
@@ -356,8 +383,8 @@ async function animateScoreStars(startX, startY, player, numPoints) {
       });
 
       setTimeout(() => {
-        star.style.opacity = "0";  // fade AFTER flying finishes
-      }, 1000);  // wait until just before removal
+        star.style.opacity = "0";  
+      }, 1000);  
 
       setTimeout(() => {
         document.body.removeChild(star);
@@ -386,6 +413,8 @@ async function loadGameState() {
 
         lastGameState = state;
         renderGameBoard(state, true);
+        applyClaimedCardStyles(state.claimed_cards);
+
 
         if (isBoardFull(state)) {
             await handleGameOver();
@@ -452,7 +481,10 @@ function renderGameBoard(state, skipDots = false) {
     topCanvas.style.zIndex = "2";
     gameBoard.appendChild(topCanvas);
 
-    const claimedCards = state.claimed_cards;
+
+    
+	
+
     const sortedSquares = Object.entries(state.graph.nodes).sort((a, b) => {
         const [rowA, colA] = a[1].position;
         const [rowB, colB] = b[1].position;
@@ -469,16 +501,11 @@ function renderGameBoard(state, skipDots = false) {
         `;
         square.addEventListener("click", () => handleSquareClick(squareId));
 
-        if (claimedCards[squareId] === 1) {
-            square.classList.add("claimed-by-1");
-        } else if (claimedCards[squareId] === 2) {
-            square.classList.add("claimed-by-2");
-        }
-
-        gameBoard.appendChild(square);
+           gameBoard.appendChild(square);
     });
 
     drawConnections(state, skipDots);
+    applyClaimedCardStyles(state.claimed_cards);
 }
 
 async function resetGame() {
@@ -517,6 +544,8 @@ async function handleSquareClick(squareId) {
     return;
   }
 
+
+
   try {
     const response = await fetch("/place", {
       method: "POST",
@@ -541,13 +570,6 @@ async function handleSquareClick(squareId) {
       lastGameState.graph.nodes[squareId].value = selectedPhaseIndex;
     }
 
-    // Step 2: Update claimed cards in memory
-    for (const event of events) {
-      const claimed = event.claimed || [];
-      claimed.forEach(id => {
-        lastGameState.claimed_cards[id] = event.player;
-      });
-    }
 
     // Step 3: Ensure connection memory exists
     if (!lastGameState.connections) {
@@ -560,6 +582,8 @@ async function handleSquareClick(squareId) {
 
     // Step 4: Render board without dots, then restore dots after reflow
     renderGameBoard(lastGameState, false);
+    applyClaimedCardStyles(lastGameState.claimed_cards);
+
 
     // Step 5: Animate each event and update connections/scores
     for (const event of events) {
@@ -609,6 +633,11 @@ async function handleSquareClick(squareId) {
     }
 
     // Step 6: Cleanup
+    if (!lastGameState.scores) lastGameState.scores = { 1: 0, 2: 0 };
+    for (const { player, points } of events) {
+      lastGameState.scores[player] = (lastGameState.scores[player] ?? 0) + points;
+    }
+
     requestAnimationFrame(() => drawConnectionsCached());
     unhighlightPhases();
 
@@ -643,6 +672,17 @@ function handleKeydown(event) {
     }
 }
 
+
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "z") {
+    e.preventDefault();
+    undoMove();
+  }
+  if (e.ctrlKey && e.key === "y") {
+    e.preventDefault();
+    redoMove();
+  }
+});
 
 
 // =========================
@@ -684,7 +724,54 @@ function switchPlayer() {
     turnIndicator.innerText = `Player ${currentPlayer}'s turn`;
 }
 
+async function undoMove() {
+  try {
+    const res = await fetch("/undo", { method: "POST" });
+    const data = await res.json();
 
+    if (!data.success) {
+      alert(data.error || "Unable to undo move.");
+      return;
+    }
+
+    lastGameState = data.state;
+    currentPlayer = data.state.current_player;
+    document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
+    window.currentBoldEdges = rebuildBoldEdgesFromConnections(data.state.connections);
+    renderGameBoard(lastGameState);
+    applyClaimedCardStyles(data.state.claimed_cards);
+    loadScores();
+
+  } catch (error) {
+    console.error("Undo failed:", error);
+    alert("There was a problem undoing the move.");
+  }
+}
+
+
+async function redoMove() {
+  try {
+    const res = await fetch("/redo", { method: "POST" });
+    const data = await res.json();
+
+    if (!data.success) {
+      alert(data.error || "Unable to redo move.");
+      return;
+    }
+
+    lastGameState = data.state;
+    currentPlayer = data.state.current_player;
+    document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
+    window.currentBoldEdges = rebuildBoldEdgesFromConnections(data.state.connections);
+    renderGameBoard(lastGameState);
+    applyClaimedCardStyles(data.state.claimed_cards);
+    loadScores();
+
+  } catch (error) {
+    console.error("Redo failed:", error);
+    alert("There was a problem redoing the move.");
+  }
+}
 
 
 
@@ -692,17 +779,12 @@ function switchPlayer() {
 // 8. INITIALIZATION
 // =========================
 
-async function loadScores() {
-    try {
-	console.log("Fetching scores...")
-        const response = await fetch("/scores");
-        const scores = await response.json();
-        document.getElementById("player1-points").innerText = scores["1"];
-        document.getElementById("player2-points").innerText = scores["2"];
-    } catch (error) {
-        console.error("Error fetching scores:", error);
-    }
+function loadScores() {
+  if (!lastGameState || !lastGameState.scores) return;
+  document.getElementById("player1-points").innerText = lastGameState.scores[1] ?? 0;
+  document.getElementById("player2-points").innerText = lastGameState.scores[2] ?? 0;
 }
+
 
 function initializeGame() {
     createPhaseButtons();

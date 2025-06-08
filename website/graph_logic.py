@@ -38,6 +38,11 @@ class Graph:
             'nodes': {name: node.to_dict() for name, node in self.nodes.items()},
         }
 
+    def clear_all_values(self):
+        for node in self.nodes.values():
+            node.value = None
+
+
     @staticmethod
     def from_dict(data):
         new_graph = Graph()

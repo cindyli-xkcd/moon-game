@@ -1,6 +1,7 @@
 # scoring.py
 
 
+
 class ScoreTracker:
 
     def __init__(self):
@@ -108,6 +109,9 @@ class ScoreTracker:
 
     def get_claimed_cards(self, player):
         return [square for square, owner in self.claimed_cards.items() if owner == player]
+
+    def get_all_claimed_cards(self):
+        return self.claimed_cards  # e.g., {"square-5": 1, "square-7": 2}
 
 
     def finalize_scores(self):
