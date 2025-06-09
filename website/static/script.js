@@ -521,7 +521,11 @@ async function resetGame() {
             document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
             document.getElementById("final-scores").style.display = "none";
             document.getElementById("final-scores").innerHTML = "";
-            loadGameState();
+
+	    lastGameState = data.state;
+	    renderGameBoard(lastGameState);
+	    applyClaimedCardStyles(lastGameState.claimed_cards);
+            loadScores();
         } else {
             alert("Error resetting the game: " + data.error);
         }
@@ -581,6 +585,7 @@ async function handleSquareClick(squareId) {
     }
 
     // Step 4: Render board without dots, then restore dots after reflow
+    lastGameState.claimed_cards = data.state.claimed_cards;
     renderGameBoard(lastGameState, false);
     applyClaimedCardStyles(lastGameState.claimed_cards);
 
@@ -742,6 +747,9 @@ async function undoMove() {
     applyClaimedCardStyles(data.state.claimed_cards);
     loadScores();
 
+    document.getElementById("final-scores").style.display = "none";
+    document.getElementById("final-scores").innerHTML = "";
+
   } catch (error) {
     console.error("Undo failed:", error);
     alert("There was a problem undoing the move.");
@@ -766,6 +774,10 @@ async function redoMove() {
     renderGameBoard(lastGameState);
     applyClaimedCardStyles(data.state.claimed_cards);
     loadScores();
+
+    if (isBoardFull(lastGameState)) {
+      await handleGameOver();
+    }
 
   } catch (error) {
     console.error("Redo failed:", error);
