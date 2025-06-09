@@ -6,6 +6,7 @@
 let currentPlayer = 1; // Start with Player 1
 let selectedPhaseIndex = 0;
 let lastGameState = null;
+let animationsEnabled = true;
 
 const moonPhases = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 window.currentBoldEdges = [];
@@ -269,29 +270,33 @@ function drawConnectionsCached() {
 // 4. ANIMATION LOGIC
 // =========================
 
+
 async function animateLunarCycle(chain) {
-    // Step 1: Pulse nodes
+  const chainEdges = [];
+  for (let i = 0; i < chain.length - 1; i++) {
+    chainEdges.push([chain[i], chain[i + 1]]);
+  }
+
+  if (animationsEnabled) {
     pulseNodes(chain);
     await sleep(600);
 
-    // Step 2: Temporarily remove the cycle's edges from bold list
-    const chainEdges = [];
-    for (let i = 0; i < chain.length - 1; i++) {
-        chainEdges.push([chain[i], chain[i + 1]]);
-    }
-
     window.currentBoldEdges = window.currentBoldEdges.filter(
-        ([x, y]) =>
-            !chainEdges.some(([a, b]) =>
-                (x === a && y === b) || (x === b && y === a))
+      ([x, y]) => !chainEdges.some(([a, b]) =>
+        (x === a && y === b) || (x === b && y === a)
+      )
     );
 
-    // Step 3: Animate adding each edge back in
     for (const [a, b] of chainEdges) {
-        await drawBoldEdge(a, b);
-        await sleep(300);
+      await drawBoldEdge(a, b);
+      await sleep(300);
     }
+  } else {
+    window.currentBoldEdges.push(...chainEdges);
+    requestAnimationFrame(drawConnectionsCached);
+  }
 }
+
 
 function drawBoldEdge(a, b) {
     return new Promise(resolve => {
@@ -336,6 +341,7 @@ function drawBoldEdge(a, b) {
 
 
 async function animatePhasePair(pair) {
+    if (!animationsEnabled) return;
     pulseNodes(pair);
     await sleep(600);
 
@@ -349,6 +355,7 @@ async function animatePhasePair(pair) {
 
 
 async function animateFullMoonPair(pair) {
+    if (!animationsEnabled) return;
     pulseNodes(pair);
     await sleep(600);
 
@@ -361,6 +368,13 @@ async function animateFullMoonPair(pair) {
 
 async function animateScoreStars(startX, startY, player, numPoints) {
   const scoreEl = document.getElementById(`player${player}-points`);
+
+  if (!animationsEnabled) {
+    const scoreVal = parseInt(scoreEl.innerText, 10);
+    scoreEl.innerText = scoreVal + numPoints;
+    return;
+  }
+
   const scoreRect = scoreEl.getBoundingClientRect();
   const endX = scoreRect.left + scoreRect.width / 2;
   const endY = scoreRect.top + scoreRect.height / 2;
@@ -808,6 +822,13 @@ function initializeGame() {
 
     const resetButton = document.getElementById("reset-button");
     resetButton.addEventListener("click", resetGame);
+
+    document.getElementById("toggle-animations-button").addEventListener("click", () => {
+      animationsEnabled = !animationsEnabled;
+      const label = animationsEnabled ? "Disable Animations" : "Enable Animations";
+      document.getElementById("toggle-animations-button").innerText = label;
+    });
+
 }
 
 document.addEventListener("DOMContentLoaded", initializeGame);
