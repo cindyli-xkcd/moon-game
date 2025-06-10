@@ -24,6 +24,8 @@ body {
 .square {
     width: 100px;
     height: 100px;
+    box-sizing: border-box;
+    overflow: hidden;
     border: 1px solid #ccc;
     display: flex;
     align-items: center;
@@ -35,20 +37,41 @@ body {
     flex-direction: column;
     position: relative;
     z-index: 2;
+    transform-origin: center center;
+    will-change: transform;
 }
 
 .square:hover {
     background-color: #e0e0e0;
 }
 
+.square > div:first-child {
+  font-size: 32px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+
+.node-label {
+  font-size: 10px;
+  color: gray;
+  height: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+
 .phase-button {
     margin: 5px;
+    margin-top: 30px;
+    margin-bottom: 20px;
     padding: 10px;
     font-size: 20px;
     cursor: pointer;
     border: 2px solid #ccc;
     border-radius: 5px;
 }
+
 
 .phase-button.selected {
     border-color: blue;
@@ -113,9 +136,14 @@ body {
 }
 
 #game-board {
+    width: 540px;
+    height: 540px;
     position: relative;
     z-index: 1;
     padding: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 40px;
+    overflow: visible;
 }
 
 
@@ -138,11 +166,45 @@ body {
 
 
 .star {
+  position: fixed;
   font-size: 24px;
-  position: absolute;
   transition: all 1.2s ease-out;
   pointer-events: none;
   z-index: 9999;
   transform: translate(-50%, -50%);
+}
+
+
+
+#debug-panel {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 160px;
+  background: #f9f9f9;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  font-family: sans-serif;
+  z-index: 1000;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+}
+#debug-panel h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+#debug-panel button {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+  padding: 4px;
+  font-size: 13px;
+}
+#debug-panel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: 13px;
 }
 

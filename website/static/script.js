@@ -6,7 +6,12 @@
 let currentPlayer = 1; // Start with Player 1
 let selectedPhaseIndex = 0;
 let lastGameState = null;
+
 let animationsEnabled = true;
+let nodeLabelsVisible = true;
+const DEBUG_MODE = new URLSearchParams(window.location.search).get("debug") === "true";
+// or: const DEBUG_MODE = true; // for manual dev mode
+
 
 const moonPhases = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 window.currentBoldEdges = [];
@@ -57,16 +62,28 @@ function applyClaimedCardStyles(claimedCards) {
 
 
 
-
 function resizeCanvasToBoard(canvas) {
     const gameBoard = document.getElementById("game-board");
     const rect = gameBoard.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    canvas.style.width = rect.width + "px";
-    canvas.style.height = rect.height + "px";
-    return rect;
+
+    const padding = 20; // Adjust as needed for safe edge space
+    canvas.width = rect.width + 2 * padding;
+    canvas.height = rect.height + 2 * padding;
+    canvas.style.width = canvas.width + "px";
+    canvas.style.height = canvas.height + "px";
+
+    canvas.style.left = -padding + "px";
+    canvas.style.top = -padding + "px";
+
+    return {
+        left: rect.left - padding,
+        top: rect.top - padding
+    };
 }
+
+
+
+
 
 function getNodeCenters(offsetLeft, offsetTop) {
     const centers = {};
@@ -470,8 +487,8 @@ async function handleGameOver() {
     }
 }
 
-function renderGameBoard(state, skipDots = false) {
 
+function renderGameBoard(state, skipDots = false) {
     lastGameState = state;
 
     if (!state.graph || !state.graph.nodes) {
@@ -483,22 +500,20 @@ function renderGameBoard(state, skipDots = false) {
     gameBoard.innerHTML = "";
 
     // Add base and bold canvas layers
-    const baseCanvas = document.createElement("canvas");
-    baseCanvas.id = "base-connections-canvas";
-    baseCanvas.style.position = "absolute";
-    baseCanvas.style.zIndex = "1";
-    gameBoard.appendChild(baseCanvas);
-
-    const topCanvas = document.createElement("canvas");
-    topCanvas.id = "bold-connections-canvas";
-    topCanvas.style.position = "absolute";
-    topCanvas.style.zIndex = "2";
-    gameBoard.appendChild(topCanvas);
-
-
-    
-	
-
+   const baseCanvas = document.createElement("canvas");
+   baseCanvas.id = "base-connections-canvas";
+   baseCanvas.style.position = "absolute";
+   baseCanvas.style.zIndex = "1";
+   if (DEBUG_MODE) baseCanvas.style.backgroundColor = "rgba(0,255,0,0.05)";
+   gameBoard.appendChild(baseCanvas);
+   
+   const topCanvas = document.createElement("canvas");
+   topCanvas.id = "bold-connections-canvas";
+   topCanvas.style.position = "absolute";
+   topCanvas.style.zIndex = "2";
+   if (DEBUG_MODE) topCanvas.style.backgroundColor = "rgba(255,0,0,0.05)";
+   gameBoard.appendChild(topCanvas);
+ 
     const sortedSquares = Object.entries(state.graph.nodes).sort((a, b) => {
         const [rowA, colA] = a[1].position;
         const [rowB, colB] = b[1].position;
@@ -509,18 +524,27 @@ function renderGameBoard(state, skipDots = false) {
         const square = document.createElement("div");
         square.id = squareId;
         square.className = "square";
+
+        const label = DEBUG_MODE ? squareId : "&nbsp;";
         square.innerHTML = `
             <div style="font-size: 24px;">${data.value !== null ? moonPhases[data.value] : ""}</div>
-            <div style="font-size: 10px; color: gray;">${squareId}</div>
+            <div class="node-label">${label}</div>
         `;
-        square.addEventListener("click", () => handleSquareClick(squareId));
 
-           gameBoard.appendChild(square);
+        square.addEventListener("click", () => handleSquareClick(squareId));
+        gameBoard.appendChild(square);
     });
 
     drawConnections(state, skipDots);
     applyClaimedCardStyles(state.claimed_cards);
 }
+
+
+
+
+
+
+
 
 async function resetGame() {
     try {
@@ -611,7 +635,6 @@ async function handleSquareClick(squareId) {
       if (type === "phase_pair") {
         lastGameState.connections.phase_pairs.push(structure.pair);
         await animatePhasePair(structure.pair);
-	drawDotsForCurrentConnections();
 
 	const [a, b] = structure.pair;
         const aEl = document.getElementById(a);
@@ -624,7 +647,6 @@ async function handleSquareClick(squareId) {
       } else if (type === "full_moon_pair") {
         lastGameState.connections.full_moon_pairs.push(structure.pair);
         await animateFullMoonPair(structure.pair);
-	drawDotsForCurrentConnections();
 
 	const [a, b] = structure.pair;
         const aEl = document.getElementById(a);
@@ -680,7 +702,7 @@ async function handleSquareClick(squareId) {
 
 
 // =========================
-// 6.5. KEYBOARD HANDLER (moved before initializeGame)
+// 6.5. KEYBOARD HANDLER 
 // =========================
 
 function handleKeydown(event) {
@@ -693,6 +715,8 @@ function handleKeydown(event) {
 
 
 document.addEventListener("keydown", (e) => {
+  if (!DEBUG_MODE) return;
+
   if (e.ctrlKey && e.key === "z") {
     e.preventDefault();
     undoMove();
@@ -823,12 +847,49 @@ function initializeGame() {
     const resetButton = document.getElementById("reset-button");
     resetButton.addEventListener("click", resetGame);
 
-    document.getElementById("toggle-animations-button").addEventListener("click", () => {
-      animationsEnabled = !animationsEnabled;
-      const label = animationsEnabled ? "Disable Animations" : "Enable Animations";
-      document.getElementById("toggle-animations-button").innerText = label;
-    });
+    if (DEBUG_MODE) {
+      document.getElementById("debug-panel").style.display = "block";
 
+      // Handle Undo/Redo
+      document.getElementById("debug-undo").addEventListener("click", undoMove);
+      document.getElementById("debug-redo").addEventListener("click", redoMove);
+      
+      // Toggle Animations
+      document.getElementById("toggle-animations-button").addEventListener("click", () =>
+     {
+        animationsEnabled = !animationsEnabled;
+        const label = animationsEnabled ? "Disable Animations" : "Enable Animations";
+        document.getElementById("toggle-animations-button").innerText = label;
+      });
+      
+      // Toggle Node Labels
+      document.getElementById("toggle-labels-button").addEventListener("click", () => {
+        nodeLabelsVisible = !nodeLabelsVisible;
+        document.getElementById("toggle-labels-button").innerText =
+          nodeLabelsVisible ? "Hide Node Labels" : "Show Node Labels";
+      
+        document.querySelectorAll(".node-label").forEach(label => {
+          label.style.display = nodeLabelsVisible ? "block" : "none";
+        });
+      });
+      
+      // Log Game State
+      document.getElementById("log-state-button").addEventListener("click", () => {
+        console.log("Current Game State:", lastGameState);
+      });
+
+      document.getElementById("toggle-base-canvas").addEventListener("change", (e) => {
+      const canvas = document.getElementById("base-connections-canvas");
+      canvas.style.display = e.target.checked ? "block" : "none";
+      });
+
+      document.getElementById("toggle-bold-canvas").addEventListener("change", (e) => {
+        const canvas = document.getElementById("bold-connections-canvas");
+        canvas.style.display = e.target.checked ? "block" : "none";
+      });
+
+    }
+ 
 }
 
 document.addEventListener("DOMContentLoaded", initializeGame);

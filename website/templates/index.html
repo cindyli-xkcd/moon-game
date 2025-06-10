@@ -27,9 +27,18 @@
 	    </div>
 	</div>
 	
-	<button onclick="undoMove()">Undo</button>
-        <button onclick="redoMove()">Redo</button>
-	<button id="toggle-animations-button">Disable Animations</button>
+           <div id="debug-panel" style="display: none;">
+             <h4> Debug Tools</h4>
+             <button id="debug-undo">Undo</button>
+             <button id="debug-redo">Redo</button>
+             <button id="toggle-animations-button">Disable Animations</button>
+             <button id="toggle-labels-button">Hide Node Labels</button>
+             <button id="log-state-button">Log Game State</button>
+	     <h4>Canvas Layers</h4>
+             <label><input type="checkbox" id="toggle-base-canvas" checked> Show Base</label>
+             <label><input type="checkbox" id="toggle-bold-canvas" checked> Show Bold</label>
+
+	   </div>
 
 
 	    <div id="game-board" class="board">
