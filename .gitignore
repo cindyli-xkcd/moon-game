@@ -43,3 +43,5 @@ chains_complete.py
 sublists.py
 test_chains.py
 test_chains_complete.py
+__pycache__/
+*.pyc

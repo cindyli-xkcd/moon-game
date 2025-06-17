@@ -3,12 +3,15 @@
 // 1. GLOBAL STATE & CONSTANTS
 // =========================
 
-let currentPlayer = 1; // Start with Player 1
 let selectedPhaseIndex = 0;
 let lastGameState = null;
 
 let animationsEnabled = true;
 let nodeLabelsVisible = true;
+
+let selectedSlot = null;
+let selectedPhaseValue = null;
+
 const DEBUG_MODE = new URLSearchParams(window.location.search).get("debug") === "true";
 // or: const DEBUG_MODE = true; // for manual dev mode
 
@@ -31,6 +34,32 @@ function pulseNodes(ids, duration = 600) {
         ids.forEach(id => document.getElementById(id)?.classList.remove("pulse"));
     }, duration);
 }
+
+async function fetchCurrentPlayer() {
+  const res = await fetch('/state');
+  const state = await res.json();
+  return state.current_player;
+}
+
+
+async function updateHandDebugViews(activePlayer) {
+    const [p1, p2] = await Promise.all([
+        fetch("/hand/1").then(res => res.json()),
+        fetch("/hand/2").then(res => res.json())
+    ]);
+
+    const p1Elem = document.getElementById("player1-hand-debug");
+    if (p1Elem) p1Elem.innerText = JSON.stringify(p1);
+    
+    const p2Elem = document.getElementById("player2-hand-debug");
+    if (p2Elem) p2Elem.innerText = JSON.stringify(p2);
+
+    if (p1Elem) p1Elem.innerText = JSON.stringify(p1);
+    if (p2Elem) p2Elem.innerText = JSON.stringify(p2);
+
+    console.log("Current Player:", activePlayer);
+}
+
 
 
 // =========================
@@ -547,31 +576,34 @@ function renderGameBoard(state, skipDots = false) {
 
 
 async function resetGame() {
-    try {
-        const response = await fetch("/reset", { method: "POST" });
-        const data = await response.json();
+  try {
+    const response = await fetch("/reset", { method: "POST" });
+    const data = await response.json();
 
-        if (data.success) {
-            currentPlayer = 1;
-            selectedPhaseIndex = null;
-            window.currentBoldEdges = [];
-            unhighlightPhases();
-            document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
-            document.getElementById("final-scores").style.display = "none";
-            document.getElementById("final-scores").innerHTML = "";
+    if (data.success) {
+      // Clear selection state
+      selectedPhaseIndex = null;
+      selectedPhaseValue = null;
+      selectedSlot = null;
 
-	    lastGameState = data.state;
-	    renderGameBoard(lastGameState);
-	    applyClaimedCardStyles(lastGameState.claimed_cards);
-            loadScores();
-        } else {
-            alert("Error resetting the game: " + data.error);
-        }
-    } catch (error) {
-        console.error("Error resetting the game:", error);
+      // Reset visuals
+      unhighlightPhases();
+      window.currentBoldEdges = [];
+
+      // Hide final score panel
+      document.getElementById("final-scores").style.display = "none";
+      document.getElementById("final-scores").innerHTML = "";
+
+      // Re-initialize everything
+      await initializeGame();
+    } else {
+      alert("Error resetting the game: " + data.error);
     }
+  } catch (error) {
+    console.error("Error resetting the game:", error);
+    alert("There was a problem resetting the game.");
+  }
 }
-
 
 
 
@@ -580,22 +612,32 @@ async function resetGame() {
 // 6. EVENT HANDLERS
 // =========================
 
+function updateSquareOnBoard(squareId, phaseValue) {
+  const el = document.getElementById(squareId);
+  if (el) {
+    el.innerText = moonPhases[phaseValue];
+    el.classList.add("placed");
+  }
+}
+
+
 async function handleSquareClick(squareId) {
-  if (selectedPhaseIndex === null) {
-    alert("Please select a phase first!");
+  if (selectedPhaseValue === null || selectedSlot === null) {
+    alert("Please select a card.");
     return;
   }
 
-
+  const value = selectedPhaseValue;
+  const activePlayer = await fetchCurrentPlayer();
 
   try {
     const response = await fetch("/place", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        player: currentPlayer,
+        player: activePlayer,
         node_name: squareId,
-        value: selectedPhaseIndex,
+        value: selectedPhaseValue,
       }),
     });
 
@@ -605,15 +647,22 @@ async function handleSquareClick(squareId) {
       return;
     }
 
+    const replacedSlot = data.replaced_slot;
+
+    // CLEAR phase selection
+    selectedPhaseValue = null;
+    selectedSlot = null;
+    document.querySelectorAll(".phase-button").forEach(btn =>
+      btn.classList.remove("selected")
+    );
+
     const events = data.events || [];
 
-    // Step 1: Apply the placed phase
+    // Update lastGameState for scoring animations
     if (lastGameState?.graph?.nodes?.[squareId]) {
-      lastGameState.graph.nodes[squareId].value = selectedPhaseIndex;
+      lastGameState.graph.nodes[squareId].value = value;
     }
 
-
-    // Step 3: Ensure connection memory exists
     if (!lastGameState.connections) {
       lastGameState.connections = {
         phase_pairs: [],
@@ -622,58 +671,48 @@ async function handleSquareClick(squareId) {
       };
     }
 
-    // Step 4: Render board without dots, then restore dots after reflow
+    // Apply claimed cards & re-render
     lastGameState.claimed_cards = data.state.claimed_cards;
-    renderGameBoard(lastGameState, false);
+    updateSquareOnBoard(squareId, value); 
     applyClaimedCardStyles(lastGameState.claimed_cards);
 
-
-    // Step 5: Animate each event and update connections/scores
+    // Run animations for events
     for (const event of events) {
       const { type, structure, points, player } = event;
 
       if (type === "phase_pair") {
         lastGameState.connections.phase_pairs.push(structure.pair);
         await animatePhasePair(structure.pair);
-
-	const [a, b] = structure.pair;
+        const [a, b] = structure.pair;
         const aEl = document.getElementById(a);
         const bEl = document.getElementById(b);
         const midX = (aEl.getBoundingClientRect().left + bEl.getBoundingClientRect().left) / 2;
         const midY = (aEl.getBoundingClientRect().top + bEl.getBoundingClientRect().top) / 2;
-
         await animateScoreStars(midX, midY, player, points);
-
       } else if (type === "full_moon_pair") {
         lastGameState.connections.full_moon_pairs.push(structure.pair);
         await animateFullMoonPair(structure.pair);
-
-	const [a, b] = structure.pair;
+        const [a, b] = structure.pair;
         const aEl = document.getElementById(a);
         const bEl = document.getElementById(b);
         const midX = (aEl.getBoundingClientRect().left + bEl.getBoundingClientRect().left) / 2;
         const midY = (aEl.getBoundingClientRect().top + bEl.getBoundingClientRect().top) / 2;
-
         await animateScoreStars(midX, midY, player, points);
-
       } else if (type === "lunar_cycle") {
         lastGameState.connections.lunar_cycles.push(...event.connections);
         await animateLunarCycle(structure.chain);
-
-	  for (let nodeId of structure.chain) {
-             const el = document.getElementById(nodeId);
-             if (!el) continue;
-             const rect = el.getBoundingClientRect();
-             const startX = rect.left + rect.width / 2;
-             const startY = rect.top + rect.height / 2;
-             await animateScoreStars(startX, startY, player, 1);
+        for (let nodeId of structure.chain) {
+          const el = document.getElementById(nodeId);
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          const startX = rect.left + rect.width / 2;
+          const startY = rect.top + rect.height / 2;
+          await animateScoreStars(startX, startY, player, 1);
         }
       }
-
-
     }
 
-    // Step 6: Cleanup
+    // Update score cache
     if (!lastGameState.scores) lastGameState.scores = { 1: 0, 2: 0 };
     for (const { player, points } of events) {
       lastGameState.scores[player] = (lastGameState.scores[player] ?? 0) + points;
@@ -682,17 +721,21 @@ async function handleSquareClick(squareId) {
     requestAnimationFrame(() => drawConnectionsCached());
     unhighlightPhases();
 
+    // Game over check
     if (data.game_over) {
-      try {
-        await handleGameOver();
-      } catch (e) {
-        console.error("Error during game over handling:", e);
-        alert("There was a problem finalizing the game.");
-      }
+      await handleGameOver();
       return;
     }
 
-    switchPlayer();
+    const playerWhoJustPlayed = activePlayer;  // This is before switch
+    await createButtonsForPlayer(playerWhoJustPlayed, playerWhoJustPlayed, replacedSlot);
+
+
+    //  GET new current player from backend and update UI
+    const newActivePlayer = data.state.current_player;
+    await createPhaseButtons(newActivePlayer);
+    await updateHandDebugViews(newActivePlayer);
+    document.getElementById("turn-indicator").innerText = `Player ${newActivePlayer}'s turn`;
 
   } catch (error) {
     console.error("Error placing phase:", error);
@@ -701,17 +744,15 @@ async function handleSquareClick(squareId) {
 }
 
 
+
+
+
+
 // =========================
 // 6.5. KEYBOARD HANDLER 
 // =========================
 
-function handleKeydown(event) {
-    const phaseIndex = parseInt(event.key, 10) - 1;
-    if (phaseIndex >= 0 && phaseIndex < moonPhases.length) {
-        selectPhase(phaseIndex);
-        console.log(`Selected phase: ${moonPhases[phaseIndex]} (via keyboard)`);
-    }
-}
+
 
 
 document.addEventListener("keydown", (e) => {
@@ -732,27 +773,99 @@ document.addEventListener("keydown", (e) => {
 // 7. UI SETUP
 // =========================
 
-function createPhaseButtons() {
-    const phaseButtons = document.getElementById("phase-buttons");
-    phaseButtons.innerHTML = "";
 
-    moonPhases.forEach((phase, index) => {
-        const button = document.createElement("button");
-        button.innerText = phase;
-        button.className = "phase-button";
-        if (index === selectedPhaseIndex) button.classList.add("selected");
-
-        button.addEventListener("click", () => selectPhase(index));
-        phaseButtons.appendChild(button);
-    });
+function disableHandButtons(player) {
+  const buttons = document.querySelectorAll(`#phase-buttons-player${player} .phase-button`);
+  buttons.forEach(btn => btn.disabled = true);
 }
 
-function selectPhase(index) {
-    selectedPhaseIndex = index;
-    document.querySelectorAll(".phase-button").forEach((button, idx) => {
-        button.classList.toggle("selected", idx === index);
-    });
+
+async function createPhaseButtons(activePlayer, selectedSlot = null) {
+    await createButtonsForPlayer(activePlayer, activePlayer, selectedSlot);
+
+    const otherPlayer = activePlayer === 1 ? 2 : 1;
+    disableHandButtons(otherPlayer);
 }
+
+
+async function createButtonsForPlayer(player, activePlayer, selectedSlot = null) {
+  const container = document.getElementById(`phase-buttons-player${player}`);
+  const res = await fetch(`/hand/${player}`);
+  const phasesToShow = await res.json();
+
+  const existingButtons = container.querySelectorAll(".phase-button");
+
+  // If number of buttons changed (e.g. game reset), do full redraw
+  if (existingButtons.length !== phasesToShow.length || selectedSlot === null) {
+    container.innerHTML = "";
+    for (let slot = 0; slot < phasesToShow.length; slot++) {
+      const phase = phasesToShow[slot];
+      const button = document.createElement("button");
+      button.innerText = moonPhases[phase];
+      button.className = "phase-button";
+
+      if (player === activePlayer) {
+        button.addEventListener("click", () => {
+          console.log(`Player ${player} clicked slot`, slot, "phase", phase);
+          selectPhase(phase, slot, activePlayer);
+        });
+      }
+
+      if (player === activePlayer && slot === selectedSlot) {
+        button.classList.add("selected");
+      }
+
+      container.appendChild(button);
+    }
+    return;
+  }
+
+  // Selective update: only replace the changed slot
+  for (let slot = 0; slot < phasesToShow.length; slot++) {
+    if (slot === selectedSlot) {
+      const oldButton = existingButtons[slot];
+      const newButton = document.createElement("button");
+      newButton.innerText = moonPhases[phasesToShow[slot]];
+      newButton.className = "phase-button new-card";
+
+      if (player === activePlayer) {
+        newButton.addEventListener("click", () => {
+          console.log(`Player ${player} clicked slot`, slot, "phase", phasesToShow[slot]);
+          selectPhase(phasesToShow[slot], slot, activePlayer);
+        });
+      }
+
+      newButton.addEventListener("animationend", () => {
+        newButton.classList.remove("new-card");
+      });
+
+      container.replaceChild(newButton, oldButton);
+    }
+  }
+}
+
+
+
+
+function selectPhase(phase, slot, activePlayer) {
+   selectedPhaseValue = phase;
+   selectedSlot = slot;
+   
+   // Clear existing selections
+   document.querySelectorAll(`#phase-buttons-player${activePlayer} .phase-button`)
+     .forEach(btn => btn.classList.remove("selected"));
+   
+   // Re-select the clicked one
+   const buttons = document.querySelectorAll(`#phase-buttons-player${activePlayer} .phase-button`);
+   if (buttons[slot]) {
+     buttons[slot].classList.add("selected");
+   }
+
+
+}
+
+
+
 
 function unhighlightPhases() {
     selectedPhaseIndex = null;
@@ -761,11 +874,7 @@ function unhighlightPhases() {
     });
 }
 
-function switchPlayer() {
-    currentPlayer = currentPlayer === 1 ? 2 : 1;
-    const turnIndicator = document.getElementById("turn-indicator");
-    turnIndicator.innerText = `Player ${currentPlayer}'s turn`;
-}
+
 
 async function undoMove() {
   try {
@@ -778,8 +887,8 @@ async function undoMove() {
     }
 
     lastGameState = data.state;
-    currentPlayer = data.state.current_player;
-    document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
+    const activePlayer = data.state.current_player;
+    document.getElementById("turn-indicator").innerText = `Player ${activePlayer}'s turn`;
     window.currentBoldEdges = rebuildBoldEdgesFromConnections(data.state.connections);
     renderGameBoard(lastGameState);
     applyClaimedCardStyles(data.state.claimed_cards);
@@ -806,8 +915,8 @@ async function redoMove() {
     }
 
     lastGameState = data.state;
-    currentPlayer = data.state.current_player;
-    document.getElementById("turn-indicator").innerText = `Player ${currentPlayer}'s turn`;
+    const activePlayer = data.state.current_player;
+    document.getElementById("turn-indicator").innerText = `Player ${activePlayer}'s turn`;
     window.currentBoldEdges = rebuildBoldEdgesFromConnections(data.state.connections);
     renderGameBoard(lastGameState);
     applyClaimedCardStyles(data.state.claimed_cards);
@@ -836,13 +945,22 @@ function loadScores() {
 }
 
 
-function initializeGame() {
-    createPhaseButtons();
+async function initializeGame() {
+    const activePlayer = await fetchCurrentPlayer();
+
+    await createButtonsForPlayer(1, activePlayer);
+    await createButtonsForPlayer(2, activePlayer);
+
+    const otherPlayer = activePlayer === 1 ? 2 : 1;
+    disableHandButtons(otherPlayer);
+
+    await updateHandDebugViews(activePlayer);
+
     loadGameState();
-    document.addEventListener("keydown", handleKeydown);
+    // document.addEventListener("keydown", handleKeydown);
 
     const turnIndicator = document.getElementById("turn-indicator");
-    turnIndicator.innerText = `Player ${currentPlayer}'s turn`;
+    turnIndicator.innerText = `Player ${activePlayer}'s turn`;
 
     const resetButton = document.getElementById("reset-button");
     resetButton.addEventListener("click", resetGame);
@@ -889,9 +1007,12 @@ function initializeGame() {
       });
 
     }
+    updateHandDebugViews(activePlayer);
  
 }
 
-document.addEventListener("DOMContentLoaded", initializeGame);
+document.addEventListener("DOMContentLoaded", () => {
+  initializeGame();
+});
 
 

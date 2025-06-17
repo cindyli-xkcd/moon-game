@@ -4,6 +4,7 @@ from score_tracker import ScoreTracker
 from strategies.phase_pair import PhasePair
 from strategies.full_moon_pair import FullMoonPair
 from strategies.lunar_cycle import LunarCycle
+from deck_manager import DeckManager
 from copy import deepcopy
 
 app = Flask(__name__)
@@ -38,6 +39,11 @@ score_tracker = ScoreTracker()
 phase_pair_module = PhasePair()
 full_moon_pair_module = FullMoonPair()
 lunar_cycle_module = LunarCycle()
+
+# Initialize deck manager and starting hands
+deck_manager = DeckManager(phases=list(range(8)))  # 8 moon phases
+deck_manager.draw(1, 3)
+deck_manager.draw(2, 3)
 
 
 @app.route("/undo", methods=["POST"])
@@ -129,6 +135,8 @@ def get_state():
             "full_moon_pairs": score_tracker.full_moon_pairs,
             "lunar_cycles": score_tracker.lunar_cycle_connections
             },
+        "current_player": current_player
+        
     })
 
 
@@ -140,6 +148,7 @@ def place_value():
     player = data["player"]
     node_name = data["node_name"]
     value = data["value"]
+
 
     if "player" not in data or "node_name" not in data or "value" not in data:
         return jsonify({"success": False, "error": "Missing required fields in the request."})
@@ -158,6 +167,15 @@ def place_value():
         "player": current_player
     })
     redo_stack.clear()  # Clear redo stack after new move
+
+    try:
+        print(f"[DEBUG] Player {player} trying to play {value}")
+        print(f"[DEBUG] Current hand:", deck_manager.get_hand(player))
+        slot_index = deck_manager.play(player, value)
+        deck_manager.draw(player, 3)          # refill hand
+    except ValueError:
+        return jsonify({"success": False, "error": "Card not in hand"})
+
 
     #  Step 1: Place the value
     node.add_value(value)
@@ -178,6 +196,7 @@ def place_value():
     "success": True,
     "events": all_events,
     "game_over": board_full,
+    "replaced_slot": slot_index,
     "state": {
         "graph": graph.to_dict(),
         "scores": score_tracker.get_scores(),
@@ -216,6 +235,10 @@ def reset_game():
     score_tracker.reset()
     game_history.clear()
     redo_stack.clear()
+    deck_manager.reset()
+    deck_manager.draw(1, 3)
+    deck_manager.draw(2, 3)
+
 
     return jsonify({
         "success": True,
@@ -249,6 +272,13 @@ def final_scores():
     except Exception as e:
         print("Error in /final_scores:", e)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/hand/<int:player_id>", methods=["GET"])
+def get_hand(player_id):
+    hand = deck_manager.get_hand(player_id)
+    print(f"Returned hand for player {player_id}:", hand)  # 🪵 LOG
+    return jsonify(hand)
 
 
 
