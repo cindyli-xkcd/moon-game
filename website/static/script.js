@@ -21,6 +21,26 @@ window.currentBoldEdges = [];
 window.animatingLunarCycle = false;
 
 // =========================
+// PLAYER ID SETUP
+// =========================
+
+if (!localStorage.getItem("player_id")) {
+    const assignedPlayer = prompt("Enter player ID (player1 or player2):");
+    localStorage.setItem("player_id", assignedPlayer);
+}
+const playerId = localStorage.getItem("player_id");
+
+async function fetchWithPlayer(url, options = {}) {
+    options.headers = {
+        ...(options.headers || {}),
+        "X-Player-ID": playerId,
+        "Content-Type": "application/json"
+    };
+    return fetch(url, options);
+}
+
+
+// =========================
 // 2. UTILITY FUNCTIONS
 // =========================
 
@@ -36,28 +56,21 @@ function pulseNodes(ids, duration = 600) {
 }
 
 async function fetchCurrentPlayer() {
-  const res = await fetch('/state');
+  const res = await fetchWithPlayer('/state');
   const state = await res.json();
   return state.current_player;
 }
 
 
 async function updateHandDebugViews(activePlayer) {
-    const [p1, p2] = await Promise.all([
-        fetch("/hand/1").then(res => res.json()),
-        fetch("/hand/2").then(res => res.json())
-    ]);
+  const hand = lastGameState?.hand ?? [];
 
-    const p1Elem = document.getElementById("player1-hand-debug");
-    if (p1Elem) p1Elem.innerText = JSON.stringify(p1);
-    
-    const p2Elem = document.getElementById("player2-hand-debug");
-    if (p2Elem) p2Elem.innerText = JSON.stringify(p2);
+  const debugElem = document.getElementById(`player${activePlayer}-hand-debug`);
+  if (debugElem) debugElem.innerText = JSON.stringify(hand);
+  
+  console.log("Current Player:", activePlayer);
+  console.log("FULL STATE:", lastGameState);
 
-    if (p1Elem) p1Elem.innerText = JSON.stringify(p1);
-    if (p2Elem) p2Elem.innerText = JSON.stringify(p2);
-
-    console.log("Current Player:", activePlayer);
 }
 
 
@@ -79,11 +92,14 @@ function rebuildBoldEdgesFromConnections(connections) {
   return edges;
 }
 
-
 function applyClaimedCardStyles(claimedCards) {
   for (const squareId in claimedCards) {
     const square = document.getElementById(squareId);
     if (square) {
+      // Remove any previous claimed-by classes
+      square.classList.remove("claimed-by-1", "claimed-by-2");
+
+      // Add the correct one
       square.classList.add(`claimed-by-${claimedCards[squareId]}`);
     }
   }
@@ -466,21 +482,40 @@ async function animateScoreStars(startX, startY, player, numPoints) {
 // 5. GAME STATE MANAGEMENT
 // =========================
 
-async function loadGameState() {
+async function loadGameState(options = {}) {
+    const { drawDots = false } = options;
     try {
-        const response = await fetch("/state");
+        const response = await fetchWithPlayer("/state");
         const state = await response.json();
 
         lastGameState = state;
-        renderGameBoard(state, true);
+
+	lastGameState.scores = state.score;
+
+	console.log("[DEBUG] Scores from backend:", state.score);
+
+
+	if (state?.connections) {
+          window.currentBoldEdges = rebuildBoldEdgesFromConnections(state.connections);
+        }
+
+
+        renderGameBoard(state, !drawDots);
         applyClaimedCardStyles(state.claimed_cards);
+
+	
 
 
         if (isBoardFull(state)) {
             await handleGameOver();
         }
 
-        loadScores();
+	requestAnimationFrame(() => {
+          loadScores();
+        });
+
+	console.log("loadGameState hand:", state.hand);
+
     } catch (error) {
         console.error("Error fetching game state:", error);
     }
@@ -494,7 +529,7 @@ async function handleGameOver() {
     // disableBoard();
 
     try {
-        const res = await fetch("/final_scores");
+        const res = await fetchWithPlayer("/final_scores");
         const data = await res.json();
 
         const finalScoreDiv = document.getElementById("final-scores");
@@ -577,7 +612,7 @@ function renderGameBoard(state, skipDots = false) {
 
 async function resetGame() {
   try {
-    const response = await fetch("/reset", { method: "POST" });
+    const response = await fetchWithPlayer("/reset", { method: "POST" });
     const data = await response.json();
 
     if (data.success) {
@@ -631,7 +666,7 @@ async function handleSquareClick(squareId) {
   const activePlayer = await fetchCurrentPlayer();
 
   try {
-    const response = await fetch("/place", {
+    const response = await fetchWithPlayer("/place", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -646,6 +681,7 @@ async function handleSquareClick(squareId) {
       alert(data.error || "Invalid move");
       return;
     }
+
 
     const replacedSlot = data.replaced_slot;
 
@@ -675,6 +711,7 @@ async function handleSquareClick(squareId) {
     lastGameState.claimed_cards = data.state.claimed_cards;
     updateSquareOnBoard(squareId, value); 
     applyClaimedCardStyles(lastGameState.claimed_cards);
+    await new Promise(requestAnimationFrame);
 
     // Run animations for events
     for (const event of events) {
@@ -714,9 +751,12 @@ async function handleSquareClick(squareId) {
 
     // Update score cache
     if (!lastGameState.scores) lastGameState.scores = { 1: 0, 2: 0 };
-    for (const { player, points } of events) {
-      lastGameState.scores[player] = (lastGameState.scores[player] ?? 0) + points;
-    }
+//    for (const { player, points } of events) {
+//      lastGameState.scores[player] = (lastGameState.scores[player] ?? 0) + points;
+//    }
+
+    window.currentBoldEdges = rebuildBoldEdgesFromConnections(data.state.connections);
+
 
     requestAnimationFrame(() => drawConnectionsCached());
     unhighlightPhases();
@@ -728,13 +768,24 @@ async function handleSquareClick(squareId) {
     }
 
     const playerWhoJustPlayed = activePlayer;  // This is before switch
-    await createButtonsForPlayer(playerWhoJustPlayed, playerWhoJustPlayed, replacedSlot);
+    // await createButtonsForPlayer(playerWhoJustPlayed, playerWhoJustPlayed, replacedSlot);
 
 
     //  GET new current player from backend and update UI
     const newActivePlayer = data.state.current_player;
+    await loadGameState({ drawDots : true });
+    lastGameState.scores = data.state.scores;
+    loadScores();
+
+    console.log("[DEBUG] Scores after move (from backend):", data.state.scores);
+    console.log("[DEBUG] lastGameState.scores:", lastGameState?.scores);
+    console.log("[DEBUG] Rendered scores:",
+      document.getElementById("player1-points")?.innerText,
+      document.getElementById("player2-points")?.innerText
+    );
+
     await createPhaseButtons(newActivePlayer);
-    await updateHandDebugViews(newActivePlayer);
+    // await updateHandDebugViews(newActivePlayer);
     document.getElementById("turn-indicator").innerText = `Player ${newActivePlayer}'s turn`;
 
   } catch (error) {
@@ -781,67 +832,52 @@ function disableHandButtons(player) {
 
 
 async function createPhaseButtons(activePlayer, selectedSlot = null) {
-    await createButtonsForPlayer(activePlayer, activePlayer, selectedSlot);
+    const thisPlayer = parseInt(playerId.slice(-1));
 
-    const otherPlayer = activePlayer === 1 ? 2 : 1;
-    disableHandButtons(otherPlayer);
+    // Always draw this player's own hand
+    await createButtonsForPlayer(thisPlayer, activePlayer, selectedSlot);
+
+    // Disable if it's not their turn
+    if (thisPlayer !== activePlayer) {
+        disableHandButtons(thisPlayer);
+    }
 }
+
+
 
 
 async function createButtonsForPlayer(player, activePlayer, selectedSlot = null) {
   const container = document.getElementById(`phase-buttons-player${player}`);
-  const res = await fetch(`/hand/${player}`);
-  const phasesToShow = await res.json();
+  container.innerHTML = "";
 
-  const existingButtons = container.querySelectorAll(".phase-button");
+  const thisPlayer = parseInt(playerId.slice(-1));
+  const isSelf = player === thisPlayer;
+  const isTurn = player === activePlayer;
 
-  // If number of buttons changed (e.g. game reset), do full redraw
-  if (existingButtons.length !== phasesToShow.length || selectedSlot === null) {
-    container.innerHTML = "";
-    for (let slot = 0; slot < phasesToShow.length; slot++) {
-      const phase = phasesToShow[slot];
-      const button = document.createElement("button");
-      button.innerText = moonPhases[phase];
-      button.className = "phase-button";
+  const phasesToShow = isSelf && lastGameState?.hand ? lastGameState.hand : [];
 
-      if (player === activePlayer) {
-        button.addEventListener("click", () => {
-          console.log(`Player ${player} clicked slot`, slot, "phase", phase);
-          selectPhase(phase, slot, activePlayer);
-        });
-      }
-
-      if (player === activePlayer && slot === selectedSlot) {
-        button.classList.add("selected");
-      }
-
-      container.appendChild(button);
-    }
-    return;
-  }
-
-  // Selective update: only replace the changed slot
   for (let slot = 0; slot < phasesToShow.length; slot++) {
-    if (slot === selectedSlot) {
-      const oldButton = existingButtons[slot];
-      const newButton = document.createElement("button");
-      newButton.innerText = moonPhases[phasesToShow[slot]];
-      newButton.className = "phase-button new-card";
+    const phase = phasesToShow[slot];
+    const button = document.createElement("button");
+    button.innerText = moonPhases[phase];
+    button.className = "phase-button";
 
-      if (player === activePlayer) {
-        newButton.addEventListener("click", () => {
-          console.log(`Player ${player} clicked slot`, slot, "phase", phasesToShow[slot]);
-          selectPhase(phasesToShow[slot], slot, activePlayer);
-        });
-      }
-
-      newButton.addEventListener("animationend", () => {
-        newButton.classList.remove("new-card");
+    // Only allow clicking if it's this player’s turn
+    if (isTurn && isSelf) {
+      button.addEventListener("click", () => {
+        console.log(`Player ${player} clicked slot`, slot, "phase", phase);
+        selectPhase(phase, slot, activePlayer);
       });
-
-      container.replaceChild(newButton, oldButton);
     }
+
+    if (isTurn && isSelf && slot === selectedSlot) {
+      button.classList.add("selected");
+    }
+
+    container.appendChild(button);
   }
+
+  console.log("Drawing buttons for", player, "visible to", activePlayer);
 }
 
 
@@ -878,7 +914,7 @@ function unhighlightPhases() {
 
 async function undoMove() {
   try {
-    const res = await fetch("/undo", { method: "POST" });
+    const res = await fetchWithPlayer("/undo", { method: "POST" });
     const data = await res.json();
 
     if (!data.success) {
@@ -906,7 +942,7 @@ async function undoMove() {
 
 async function redoMove() {
   try {
-    const res = await fetch("/redo", { method: "POST" });
+    const res = await fetchWithPlayer("/redo", { method: "POST" });
     const data = await res.json();
 
     if (!data.success) {
@@ -947,16 +983,12 @@ function loadScores() {
 
 async function initializeGame() {
     const activePlayer = await fetchCurrentPlayer();
-
-    await createButtonsForPlayer(1, activePlayer);
-    await createButtonsForPlayer(2, activePlayer);
-
-    const otherPlayer = activePlayer === 1 ? 2 : 1;
-    disableHandButtons(otherPlayer);
-
+    await loadGameState( { drawDots: true });
+    await createPhaseButtons(activePlayer);
+    
     await updateHandDebugViews(activePlayer);
+    loadScores();
 
-    loadGameState();
     // document.addEventListener("keydown", handleKeydown);
 
     const turnIndicator = document.getElementById("turn-indicator");
@@ -1007,7 +1039,6 @@ async function initializeGame() {
       });
 
     }
-    updateHandDebugViews(activePlayer);
  
 }
 

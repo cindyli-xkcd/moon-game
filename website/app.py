@@ -124,8 +124,19 @@ def redo():
 def index():
     return render_template("index.html")
 
+
 @app.route("/state", methods=["GET"])
 def get_state():
+    player_id = request.headers.get("X-Player-ID")
+
+    if player_id not in {"player1", "player2"}:
+        return jsonify({"error": "Invalid or missing player ID"}), 400
+
+    player_num = int(player_id[-1])  # "player1" → 1, "player2" → 2
+    hand = deck_manager.get_hand(player_num)
+
+    print(f"[DEBUG] /state called by {player_id}, current scores:", score_tracker.get_scores())
+
     return jsonify({
         "graph": graph.to_dict(),
         "score": score_tracker.get_scores(),
@@ -134,10 +145,11 @@ def get_state():
             "phase_pairs": score_tracker.phase_pairs,
             "full_moon_pairs": score_tracker.full_moon_pairs,
             "lunar_cycles": score_tracker.lunar_cycle_connections
-            },
-        "current_player": current_player
-        
+        },
+        "current_player": current_player,
+        "hand": hand
     })
+
 
 
 
@@ -189,8 +201,13 @@ def place_value():
 
     current_player = 3 - current_player
 
+
+
     #  Step 3: Check if the board is now full
     board_full = all(n.value is not None for n in graph.nodes.values())
+
+    print(f"[DEBUG] Scores after move: {score_tracker.get_scores()}")
+
 
     return jsonify({
     "success": True,
