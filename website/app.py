@@ -1,4 +1,7 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, jsonify, request, render_template
+from flask_socketio import SocketIO, emit
 from graph_logic import Graph
 from score_tracker import ScoreTracker
 from strategies.phase_pair import PhasePair
@@ -8,6 +11,7 @@ from deck_manager import DeckManager
 from copy import deepcopy
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")  # allow any origin for now
 
 # Set up history tracking
 game_history = []
@@ -137,9 +141,9 @@ def get_state():
 
     print(f"[DEBUG] /state called by {player_id}, current scores:", score_tracker.get_scores())
 
-    return jsonify({
+    return {
         "graph": graph.to_dict(),
-        "score": score_tracker.get_scores(),
+        "scores": score_tracker.get_scores(),
         "claimed_cards": score_tracker.get_all_claimed_cards(),
         "connections": {
             "phase_pairs": score_tracker.phase_pairs,
@@ -147,8 +151,10 @@ def get_state():
             "lunar_cycles": score_tracker.lunar_cycle_connections
         },
         "current_player": current_player,
-        "hand": hand
-    })
+        "hand": hand,
+        "events": score_tracker.scoring_history[-1:] if score_tracker.scoring_history else []
+
+    }
 
 
 
@@ -208,6 +214,17 @@ def place_value():
 
     print(f"[DEBUG] Scores after move: {score_tracker.get_scores()}")
 
+    hand = deck_manager.get_hand(player)
+
+    # Notify all other clients to update, but they will fetch their own state
+    socketio.emit('state_updated')
+
+
+
+
+   
+    
+
 
     return jsonify({
     "success": True,
@@ -257,6 +274,8 @@ def reset_game():
     deck_manager.draw(2, 3)
 
 
+
+
     return jsonify({
         "success": True,
         "state": {
@@ -294,7 +313,7 @@ def final_scores():
 @app.route("/hand/<int:player_id>", methods=["GET"])
 def get_hand(player_id):
     hand = deck_manager.get_hand(player_id)
-    print(f"Returned hand for player {player_id}:", hand)  # 🪵 LOG
+    print(f"Returned hand for player {player_id}:", hand)  
     return jsonify(hand)
 
 
@@ -314,5 +333,5 @@ def debug_state():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    socketio.run(app, debug=True)
 

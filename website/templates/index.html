@@ -12,12 +12,6 @@
 	<div class="wrapper">
 	    <h1>Moon Phase Game</h1>
 	    <div id="turn-indicator">Player 1's turn</div>
-	    <!--
-	    <div id="scoreboard">
-		    <p>Player 1 Score: <span id="player1-score">0</span></p>
-		    <p>Player 2 Score: <span id="player2-score">0</span></p>
-	    </div>
-	    -->
 	<div id="scoreboard">
 	    <div id="player1-score">
 		Player 1: <span id="player1-points">0</span> points
@@ -59,6 +53,9 @@
 		    <button id="reset-button">Reset Game</button>
 	    </div>
 	    <div id="final-scores" style="display: none; margin-top: 20px;"></div>
+
+	    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
 	     <script src="{{ url_for('static', filename='script.js') }}"></script>
 	</div>
 </body>
