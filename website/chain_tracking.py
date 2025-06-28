@@ -1,5 +1,15 @@
 # chain_tracking.py
 
+def deduplicate_chain(chain):
+    seen = set()
+    deduped = []
+    for node in chain:
+        if node.name not in seen:
+            deduped.append(node)
+            seen.add(node.name)
+    return deduped
+
+
 def find_chains_from_node(node, graph):
     """
     Return all maximal increasing and decreasing chains starting from a node.
@@ -73,8 +83,9 @@ def collect_stitched_and_leftover(center_node, decreasing, increasing):
         if j not in used_increasing and len(inc) >= 3:
             leftover.append(inc)
 
+    deduped_stitched = [deduplicate_chain(chain) for chain in stitched]
     return {
-        "stitched": stitched,
+        "stitched": deduped_stitched,
         "leftover": leftover
     }
 

@@ -1,62 +1,68 @@
 <!-- index.html (the main page) -->
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moon Phase Game</title>
+    <title>moon phase game</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 	<div class="wrapper">
-	    <h1>Moon Phase Game</h1>
-	    <div id="turn-indicator">Player 1's turn</div>
+	    <h1>moon phase game</h1>
+	    <div id="turn-indicator">player 1's turn</div>
 	<div id="scoreboard">
 	    <div id="player1-score">
-		Player 1: <span id="player1-points">0</span> points
+		player 1: <span id="player1-points">0</span> points
 	    </div>
 	    <div id="player2-score">
-		Player 2: <span id="player2-points">0</span> points
+		player 2: <span id="player2-points">0</span> points
 	    </div>
 	</div>
 	
-           <div id="debug-panel" style="display: none;">
-             <h4> Debug Tools</h4>
-             <button id="debug-undo">Undo</button>
-             <button id="debug-redo">Redo</button>
-             <button id="toggle-animations-button">Disable Animations</button>
-             <button id="toggle-labels-button">Hide Node Labels</button>
-             <button id="log-state-button">Log Game State</button>
-	     <h4>Canvas Layers</h4>
-             <label><input type="checkbox" id="toggle-base-canvas" checked> Show Base</label>
-             <label><input type="checkbox" id="toggle-bold-canvas" checked> Show Bold</label>
 
-	   </div>
+	<div id="debug-panel" style="display:none; position:fixed; top:20px; left:20px; background:#eee; padding:10px; border:1px solid #aaa; z-index:999;">
+          <div id="debug-header" style="cursor:move; font-weight:bold;">debug tools</div>
+          <div id="debug-content">
+            <button id="debug-undo">undo</button>
+            <button id="debug-redo">redo</button>
+            <button id="log-state-button">log game state</button>
+	    <button id="fill-board-button">fill board</button>
+	    <label><input type="checkbox" id="toggle-animations-checkbox" checked> show animations</label>
+            <label><input type="checkbox" id="toggle-labels-checkbox" checked> show node labels</label>
+
+            <h4>canvas layers</h4>
+            <label><input type="checkbox" id="toggle-base-canvas" checked> show base</label>
+            <label><input type="checkbox" id="toggle-bold-canvas" checked> show bold</label>
+          </div>
+        </div>
 
 
-	    <div id="game-board" class="board">
-                <canvas id="connections-canvas"></canvas> 
-            </div>
+
+
+	   <div id="game-board" class="board">
+              <canvas id="bold-connections-canvas"></canvas>
+              <canvas id="connections-canvas"></canvas> 
+          </div>
+ 
 	    <div id="debug-hands" style="margin-top: 1em;">
-              <div><strong>Player 1 hand (debug):</strong> <span id="player1-hand-debug"></span></div>
-              <div><strong>Player 2 hand (debug):</strong> <span id="player2-hand-debug"></span></div>
+              <div><strong>player 1 hand (debug):</strong> <span id="player1-hand-debug"></span></div>
+              <div><strong>player 2 hand (debug):</strong> <span id="player2-hand-debug"></span></div>
 	    </div>
-
-            <div id="phase-buttons-player1"></div>
-            <div id="phase-buttons-player2"></div>
-
+            
+	    <div id="hand"></div>
 
 
 	    <!--	    <div id="phase-buttons"></div>  -->
 	    <div id="game-controls">
-		    <button id="reset-button">Reset Game</button>
+		    <button id="reset-button">reset game</button>
 	    </div>
 	    <div id="final-scores" style="display: none; margin-top: 20px;"></div>
 
 	    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
-	     <script src="{{ url_for('static', filename='script.js') }}"></script>
+	     <script type="module" src="{{ url_for('static', filename='script.js') }}"></script>
 	</div>
 </body>
 </html>

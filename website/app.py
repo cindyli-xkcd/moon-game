@@ -24,17 +24,23 @@ graph = Graph()
 current_player = 1
 
 # Initialize a 5x5 grid of nodes and connect them
-for i in range(25):
-    graph.add_node(f"square-{i}", position=(i // 5, i % 5))  # Position as (row, col)
+for row in range(5):
+    for col in range(5):
+        node_id = row * 5 + col
+        graph.add_node(f"square-{node_id}", position=(col, row))
+
 
 # Connect the nodes (adjacent neighbors)
-for i in range(5):
-    for j in range(5):
-        node_name = f"square-{i * 5 + j}"
-        if j < 4:  # Connect right neighbor
-            graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{i * 5 + j + 1}"])
-        if i < 4:  # Connect bottom neighbor
-            graph.connect_nodes(graph.nodes[node_name], graph.nodes[f"square-{(i + 1) * 5 + j}"])
+for row in range(5):
+    for col in range(5):
+        node_id = row * 5 + col
+        node_name = f"square-{node_id}"
+        if col < 4:  # Connect right neighbor
+            right_name = f"square-{row * 5 + (col + 1)}"
+            graph.connect_nodes(graph.nodes[node_name], graph.nodes[right_name])
+        if row < 4:  # Connect bottom neighbor
+            down_name = f"square-{(row + 1) *5 + col}"
+            graph.connect_nodes(graph.nodes[node_name], graph.nodes[down_name])
 
 # Initialize the ScoreTracker
 score_tracker = ScoreTracker()
@@ -44,10 +50,8 @@ phase_pair_module = PhasePair()
 full_moon_pair_module = FullMoonPair()
 lunar_cycle_module = LunarCycle()
 
-# Initialize deck manager and starting hands
-deck_manager = DeckManager(phases=list(range(8)))  # 8 moon phases
-deck_manager.draw(1, 3)
-deck_manager.draw(2, 3)
+# Initialize deck manager 
+deck_manager = DeckManager()
 
 
 @app.route("/undo", methods=["POST"])
@@ -57,34 +61,33 @@ def undo():
     if not game_history:
         return jsonify({"success": False, "error": "No moves to undo"})
 
-    # Save current state to redo stack
     redo_stack.append({
         "graph": deepcopy(graph),
         "score_tracker": deepcopy(score_tracker),
         "player": current_player
     })
 
-    # Restore previous state
     prev_state = game_history.pop()
     graph = prev_state["graph"]
     score_tracker = prev_state["score_tracker"]
     current_player = prev_state["player"]
 
+    state = {
+        "graph": graph.to_dict(),
+        "scores": score_tracker.get_scores(),
+        "claimed_cards": score_tracker.get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": score_tracker.phase_pairs,
+            "full_moon_pairs": score_tracker.full_moon_pairs,
+            "lunar_cycles": score_tracker.lunar_cycle_connections
+        },
+        "current_player": current_player
+    }
 
-    return jsonify({
-        "success": True,
-        "state": {
-            "graph": graph.to_dict(),
-            "scores": score_tracker.get_scores(),
-            "claimed_cards": score_tracker.get_all_claimed_cards(),
-            "connections": {
-                "phase_pairs": score_tracker.phase_pairs,
-                "full_moon_pairs": score_tracker.full_moon_pairs,
-                "lunar_cycles": score_tracker.lunar_cycle_connections
-            },
-            "current_player": current_player
-        }
-    })
+    socketio.emit("state_updated", { **state, "is_undo": True })
+
+    return jsonify({"success": True, "state": state})
+
 
 @app.route("/redo", methods=["POST"])
 def redo():
@@ -106,23 +109,21 @@ def redo():
     score_tracker = next_state["score_tracker"]
     current_player = next_state["player"]
 
+    state = {
+        "graph": graph.to_dict(),
+        "scores": score_tracker.get_scores(),
+        "claimed_cards": score_tracker.get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": score_tracker.phase_pairs,
+            "full_moon_pairs": score_tracker.full_moon_pairs,
+            "lunar_cycles": score_tracker.lunar_cycle_connections
+        },
+        "current_player": current_player
+    }
 
-    return jsonify({
-        "success": True,
-        "state": {
-            "graph": graph.to_dict(),
-            "scores": score_tracker.get_scores(),
-            "claimed_cards": score_tracker.get_all_claimed_cards(),
-            "connections": {
-                "phase_pairs": score_tracker.phase_pairs,
-                "full_moon_pairs": score_tracker.full_moon_pairs,
-                "lunar_cycles": score_tracker.lunar_cycle_connections
-            },
-            "current_player": current_player
-        }
-    })
+    socketio.emit("state_updated", { **state, "is_undo": True })
 
-
+    return jsonify({"success": True, "state": state})
 
 @app.route("/")
 def index():
@@ -132,14 +133,16 @@ def index():
 @app.route("/state", methods=["GET"])
 def get_state():
     player_id = request.headers.get("X-Player-ID")
+    debug = request.args.get("debug", "false").lower() == "true"
 
     if player_id not in {"player1", "player2"}:
         return jsonify({"error": "Invalid or missing player ID"}), 400
 
-    player_num = int(player_id[-1])  # "player1" → 1, "player2" → 2
+    player_num = int(player_id[-1])
     hand = deck_manager.get_hand(player_num)
 
-    print(f"[DEBUG] /state called by {player_id}, current scores:", score_tracker.get_scores())
+    if debug:
+        hand = [0,1,2,3,4,5,6,7]
 
     return {
         "graph": graph.to_dict(),
@@ -152,10 +155,8 @@ def get_state():
         },
         "current_player": current_player,
         "hand": hand,
-        "events": score_tracker.scoring_history[-1:] if score_tracker.scoring_history else []
-
+        "events": []
     }
-
 
 
 
@@ -167,9 +168,10 @@ def place_value():
     node_name = data["node_name"]
     value = data["value"]
 
-
     if "player" not in data or "node_name" not in data or "value" not in data:
         return jsonify({"success": False, "error": "Missing required fields in the request."})
+
+    debug = request.args.get("debug", "false").lower() == "true"
 
     node = graph.nodes.get(node_name)
     if not node:
@@ -178,60 +180,41 @@ def place_value():
     if node.value is not None:
         return jsonify({"success": False, "error": "Node already occupied"})
 
-    # Save a snapshot before modifying the game state
+    # Save snapshot
     game_history.append({
         "graph": deepcopy(graph),
         "score_tracker": deepcopy(score_tracker),
         "player": current_player
     })
-    redo_stack.clear()  # Clear redo stack after new move
+    redo_stack.clear()
 
     try:
         print(f"[DEBUG] Player {player} trying to play {value}")
         print(f"[DEBUG] Current hand:", deck_manager.get_hand(player))
-        slot_index = deck_manager.play(player, value)
-        deck_manager.draw(player, 3)          # refill hand
+        if debug:
+            slot_index = -1
+        else:
+            slot_index = deck_manager.play(player, value)
     except ValueError:
         return jsonify({"success": False, "error": "Card not in hand"})
 
-
-    #  Step 1: Place the value
+    # Place value and score
     node.add_value(value)
-
-    #  Step 2: Score the move
     phase_events = score_tracker.update_score_for_pair(player, phase_pair_module, node)
     full_moon_events = score_tracker.update_score_for_pair(player, full_moon_pair_module, node)
     cycle_events = score_tracker.update_score_for_cycle(player, lunar_cycle_module, node, graph)
-
     all_events = phase_events + full_moon_events + cycle_events
 
     current_player = 3 - current_player
 
-
-
-    #  Step 3: Check if the board is now full
+    # Check if game over
     board_full = all(n.value is not None for n in graph.nodes.values())
+    final_scores = score_tracker.finalize_scores() if board_full else {}
 
     print(f"[DEBUG] Scores after move: {score_tracker.get_scores()}")
 
-    hand = deck_manager.get_hand(player)
-
-    # Notify all other clients to update, but they will fetch their own state
-    socketio.emit('state_updated')
-
-
-
-
-   
-    
-
-
-    return jsonify({
-    "success": True,
-    "events": all_events,
-    "game_over": board_full,
-    "replaced_slot": slot_index,
-    "state": {
+    # Emit to all
+    socketio.emit("state_updated", {
         "graph": graph.to_dict(),
         "scores": score_tracker.get_scores(),
         "claimed_cards": score_tracker.get_all_claimed_cards(),
@@ -240,18 +223,30 @@ def place_value():
             "full_moon_pairs": score_tracker.full_moon_pairs,
             "lunar_cycles": score_tracker.lunar_cycle_connections
         },
-        "current_player": current_player
-    }
-})
+        "current_player": current_player,
+        "events": all_events,
+        "game_over": board_full,
+        "final_scores": final_scores
+    })
 
-
-
-
-
-
-
-
-
+    return jsonify({
+        "success": True,
+        "events": all_events,
+        "game_over": board_full,
+        "replaced_slot": slot_index,
+        "state": {
+            "graph": graph.to_dict(),
+            "scores": score_tracker.get_scores(),
+            "claimed_cards": score_tracker.get_all_claimed_cards(),
+            "connections": {
+                "phase_pairs": score_tracker.phase_pairs,
+                "full_moon_pairs": score_tracker.full_moon_pairs,
+                "lunar_cycles": score_tracker.lunar_cycle_connections
+            },
+            "current_player": current_player,
+            "hand": deck_manager.get_hand(player) if not debug else [0,1,2,3,4,5,6,7]
+        }
+    })
 
 
 
@@ -262,34 +257,52 @@ def reset_game():
     global graph, current_player
 
     graph.clear_all_values()
-    current_player = 1  # reset player turn here
-
-    # ... reinitialize graph nodes and connections
+    current_player = 1
 
     score_tracker.reset()
     game_history.clear()
     redo_stack.clear()
     deck_manager.reset()
-    deck_manager.draw(1, 3)
-    deck_manager.draw(2, 3)
 
+    # Identify which player is making the request
+    player_id = request.headers.get("X-Player-ID")
+    debug = request.args.get("debug", "false").lower() == "true"
 
+    player_num = int(player_id[-1]) if player_id and player_id.startswith("player") else 1
+    hand = deck_manager.get_hand(player_num)
+    if debug:
+        hand = [0,1,2,3,4,5,6,7]
 
+    # Broadcast to both players (no hand info)
+    public_state = {
+        "graph": graph.to_dict(),
+        "scores": score_tracker.get_scores(),
+        "claimed_cards": score_tracker.get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": [],
+            "full_moon_pairs": [],
+            "lunar_cycles": []
+        },
+        "current_player": current_player,
+        "events": [],
+        "game_over": False,
+        "new_game": True
+    }
 
+    socketio.emit("state_updated", public_state)
+
+    # Return personal state including hand
     return jsonify({
         "success": True,
         "state": {
-            "graph": graph.to_dict(),
-            "scores": score_tracker.get_scores(),
-            "claimed_cards": score_tracker.get_all_claimed_cards(),
-            "connections": {
-                "phase_pairs": [],
-                "full_moon_pairs": [],
-                "lunar_cycles": []
-            },
-            "current_player": current_player
+            **public_state,
+            "hand": hand  
         }
     })
+
+
+
+
 
 
 
@@ -327,6 +340,61 @@ def debug_state():
         "claimed_cards": score_tracker.get_all_claimed_cards(),
         "graph": graph.to_dict()
     })
+
+
+
+@app.route("/debug/fill_board", methods=["POST"])
+def debug_fill_board():
+    from random import randint, shuffle
+
+    player = 1
+    node_names = list(graph.nodes.keys())
+    shuffle(node_names)  # random order
+
+    # Fill all but exactly 2 nodes
+    fill_count = max(0, len(node_names) - 2)
+
+    for i in range(fill_count):
+        node_name = node_names[i]
+        node = graph.nodes[node_name]
+        if node.value is None:
+            phase_value = randint(0, 7)
+            node.add_value(phase_value)
+
+            # simulate scoring for this placement
+            score_tracker.update_score_for_pair(player, phase_pair_module, node)
+            score_tracker.update_score_for_pair(player, full_moon_pair_module, node)
+            score_tracker.update_score_for_cycle(player, lunar_cycle_module, node, graph)
+
+            player = 3 - player  # alternate players
+
+    # Emit to all clients
+    state = {
+        "graph": graph.to_dict(),
+        "scores": score_tracker.get_scores(),
+        "claimed_cards": score_tracker.get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": score_tracker.phase_pairs,
+            "full_moon_pairs": score_tracker.full_moon_pairs,
+            "lunar_cycles": score_tracker.lunar_cycle_connections
+        },
+        "current_player": current_player,
+        "events": []
+    }
+
+    socketio.emit("state_updated", {
+        **state,
+        "debug_fill": True
+    })
+
+
+    return jsonify({
+        "success": True,
+        "filled": fill_count,
+        "scores": score_tracker.get_scores(),
+        "claimed": score_tracker.get_all_claimed_cards()
+    })
+
 
 
 

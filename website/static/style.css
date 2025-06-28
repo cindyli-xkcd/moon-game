@@ -7,7 +7,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
 }
 
 .wrapper {
@@ -17,13 +17,13 @@ body {
 .board {
     display: grid;
     grid-template-columns: repeat(5, 100px);
-    gap: 20px;
+    gap: 30px;
     margin: 20px auto;
 }
 
 .square {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     box-sizing: border-box;
     overflow: hidden;
     border: 1px solid #ccc;
@@ -159,8 +159,14 @@ body {
 
 
 #bold-connections-canvas {
-    z-index: 9999;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
 }
+
 
 
 
@@ -242,5 +248,41 @@ body {
 @keyframes fadeInCard {
   from { opacity: 0; transform: scale(0.5); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+
+.hand-card {
+  font-size: 32px;
+  padding: 10px 16px;
+  margin: 6px;
+  border: 2px solid #aaa;
+  border-radius: 8px;
+  background-color: white;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.hand-card:hover {
+  background-color: #eee;
+}
+
+.hand-card.selected {
+  border-color: #007bff;
+  background-color: #cce5ff;
+  font-weight: bold;
+  transform: scale(1.05);
+}
+
+#hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+
+#game-board.hide-labels .node-label {
+  display: none;
 }
 

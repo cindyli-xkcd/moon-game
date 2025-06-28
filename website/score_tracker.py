@@ -29,6 +29,8 @@ class ScoreTracker:
         scoring_events = []
         for item in scored_pairs:
             pair = item["pair"]
+            print(f"[DEBUG] Scoring event has pair: {pair}")
+
             points = item["points"]
     
             self.scores[player] += points

@@ -21,6 +21,8 @@ class FullMoonPair:
                         "claimed": [node, neighbor]
                     })
                     claimed_set[neighbor.name] = neighbor
+                    print(f"[DEBUG] Full moon pair found: {pair}")
+
 
         if scored_pairs:
             claimed_set[node.name] = node  
