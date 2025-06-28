@@ -6,22 +6,18 @@ export const GameState = {
   playerNum: null,
   current: null,  // stores the full game state after load()
 
-  async init() {
-    const playerStr = localStorage.getItem("playerNum");
-    if (!playerStr) {
-      const chosen = prompt("Enter player number (1 or 2):");
-      if (!["1", "2"].includes(chosen)) {
-        alert("Invalid player number");
-        throw new Error("Invalid player number");
-      }
-      localStorage.setItem("playerNum", chosen);
-      this.playerNum = parseInt(chosen);
-    } else {
-      this.playerNum = parseInt(playerStr);
-    }
+async init() {
+  const params = new URLSearchParams(window.location.search);
+  const player = params.get("player");
 
-    logWithTime(`[GameState] Initialized as Player ${this.playerNum}`);
-  },
+  if (player === "1" || player === "2") {
+    this.playerNum = parseInt(player);
+    logWithTime(`[GameState] Initialized from URL as Player ${this.playerNum}`);
+  } else {
+    this.playerNum = 1; // default
+    logWithTime(`[GameState] No ?player= found, defaulting to Player ${this.playerNum}`);
+  }
+},
 
 
 async load() {
