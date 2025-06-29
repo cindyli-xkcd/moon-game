@@ -5,14 +5,18 @@ import { EventPlayer } from "./event_player.js";
 import { Renderer } from "./renderer.js";
 import { logWithTime } from "./utils.js";
 
+
 export const SocketSync = {
   socket: null,
 
   connect() {
     this.socket = io();  // assumes socket.io is available globally
 
+
     this.socket.on("connect", () => {
       logWithTime("[SocketSync] Connected to server");
+      console.log("[SocketSync] Emitting join_room with room_id:", window.roomId);
+      this.socket.emit("join_room", { room_id: window.roomId });
     });
 
     this.socket.on("disconnect", () => {
@@ -24,7 +28,7 @@ export const SocketSync = {
 
       await GameState.load(gameState);
 
-      // 💡 Explicitly update scores based on conditions
+      // Explicitly update scores based on conditions
       if (!window.animationsEnabled || gameState.new_game || gameState.is_undo || gameState.debug_fill) {
         Renderer.updateScores(gameState.scores);
       }
@@ -40,7 +44,7 @@ export const SocketSync = {
       // Re-fetch hand on new game or after resets
       if (gameState.new_game) {
         try {
-          let url = "/state";
+          let url = `/state/${window.roomId}`;
           if (window.isDebugMode && window.isDebugMode()) {
             url += "?debug=true";
           }

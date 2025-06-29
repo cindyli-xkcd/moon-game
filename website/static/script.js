@@ -4,11 +4,18 @@ import { EventPlayer } from "./event_player.js";
 import { SocketSync } from "./socket_sync.js";
 import { logWithTime } from "./utils.js";
 
+
 window.isGameOver = false;
 window.isAnimating = false;
 window.isDebugMode = false;
 window.animationsEnabled = true;
 let selectedPhase = null;
+
+
+const pathParts = window.location.pathname.split("/");
+const roomId = pathParts[2] || "default";
+console.log("[DEBUG] Using room ID:", roomId);
+window.roomId = roomId;
 
 
 function isDebugMode() {
@@ -197,7 +204,30 @@ window.handleGameOver =
 
 
 // Start the game
-main();
+document.addEventListener("DOMContentLoaded", () => {
+  main();
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -257,7 +287,7 @@ if (resetBtn) {
     if (!confirm("Are you sure you want to restart the game?")) return;
 
     try {
-      let resetUrl = "/reset";
+      let resetUrl = `/reset/${roomId}`;
       if (window.isDebugMode && window.isDebugMode()) {
         resetUrl += "?debug=true";
       }
@@ -300,7 +330,7 @@ const undoBtn = document.getElementById("debug-undo");
 if (undoBtn) {
   undoBtn.addEventListener("click", async () => {
     try {
-      const res = await fetch("/undo", { method: "POST" });
+      const res = await fetch(`/undo/${roomId}`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         GameState.current = data.state;
@@ -319,7 +349,7 @@ const redoBtn = document.getElementById("debug-redo");
 if (redoBtn) {
   redoBtn.addEventListener("click", async () => {
     try {
-      const res = await fetch("/redo", { method: "POST" });
+      const res = await fetch(`/redo/${roomId}`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         GameState.current = data.state;
@@ -398,7 +428,7 @@ const fillBoardBtn = document.getElementById("fill-board-button");
 if (fillBoardBtn) {
   fillBoardBtn.addEventListener("click", async () => {
     try {
-      const res = await fetch("/debug/fill_board", { method: "POST" });
+      const res = await fetch(`/debug/fill_board/${roomId}`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         console.log("Board filled with random moves. Current scores:", data.scores);

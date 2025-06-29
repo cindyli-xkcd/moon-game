@@ -2,6 +2,7 @@
 
 import { logWithTime } from "./utils.js";
 
+
 export const GameState = {
   playerNum: null,
   current: null,  // stores the full game state after load()
@@ -21,7 +22,7 @@ async init() {
 
 
 async load() {
-  let url = "/state";
+  let url = `/state/${window.roomId}`;
   if (window.isDebugMode && window.isDebugMode()) {
     url += "?debug=true";
   }
@@ -45,7 +46,7 @@ async load() {
 
 
 async sendMove(squareId, selectedPhase) {
-  let url = "/place";
+  let url = `/place/${window.roomId}`;
   if (window.isDebugMode && window.isDebugMode()) {
     url += "?debug=true";
   }
