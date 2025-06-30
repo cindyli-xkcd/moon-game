@@ -31,35 +31,9 @@ lunar_cycle_module = LunarCycle()
 
 def get_or_create_game(room_id):
     if room_id not in games:
-        graph = Graph()
-
-        # Build the 5x5 grid
-        for row in range(5):
-            for col in range(5):
-                node_id = row * 5 + col
-                graph.add_node(f"square-{node_id}", position=(col, row))
-
-        # Connect neighbors
-        for row in range(5):
-            for col in range(5):
-                node_id = row * 5 + col
-                node_name = f"square-{node_id}"
-                if col < 4:
-                    right_name = f"square-{row * 5 + (col + 1)}"
-                    graph.connect_nodes(graph.nodes[node_name], graph.nodes[right_name])
-                if row < 4:
-                    down_name = f"square-{(row + 1) *5 + col}"
-                    graph.connect_nodes(graph.nodes[node_name], graph.nodes[down_name])
-
-        games[room_id] = {
-            "graph": graph,
-            "score_tracker": ScoreTracker(),
-            "deck_manager": DeckManager(),
-            "current_player": 1,
-            "game_history": [],
-            "redo_stack": []
-        }
+        raise ValueError(f"No game exists for room {room_id}")
     return games[room_id]
+
 
 
 
@@ -78,6 +52,74 @@ def new_game_id():
     suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
     room_id = f"moon-{suffix}"
     return jsonify({"room_id": room_id})
+
+
+@app.route("/start_game", methods=["POST"])
+def start_game():
+    data = request.get_json()
+    board_data = data.get("board")
+    room_id = data.get("room_id")
+    
+    # Build the graph: either default 5x5 or from uploaded JSON
+    if not board_data:
+        graph = Graph()
+        scale = 100
+        offset_x = 200
+        offset_y = 100
+        for row in range(5):
+            for col in range(5):
+                node_id = row * 5 + col
+                graph.add_node(f"square-{node_id}", position=(col * scale + offset_x, row * scale + offset_y))
+        for row in range(5):
+            for col in range(5):
+                node_id = row * 5 + col
+                node_name = f"square-{node_id}"
+                if col < 4:
+                    right_name = f"square-{row * 5 + (col + 1)}"
+                    graph.connect_nodes(graph.nodes[node_name], graph.nodes[right_name])
+                if row < 4:
+                    down_name = f"square-{(row + 1) *5 + col}"
+                    graph.connect_nodes(graph.nodes[node_name], graph.nodes[down_name])
+    else:
+        graph = Graph.from_dict(board_data)
+    
+    # Either reuse existing room or create a new one
+    if room_id and room_id in games:
+        games[room_id]["graph"] = graph
+        games[room_id]["score_tracker"] = ScoreTracker()
+        games[room_id]["deck_manager"] = DeckManager()
+        games[room_id]["current_player"] = 1
+        games[room_id]["game_history"] = []
+        games[room_id]["redo_stack"] = []
+        games[room_id]["last_settings"] = {"board": board_data}
+    else:
+        room_id = "moon-" + ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        games[room_id] = {
+            "graph": graph,
+            "score_tracker": ScoreTracker(),
+            "deck_manager": DeckManager(),
+            "current_player": 1,
+            "game_history": [],
+            "redo_stack": [],
+            "last_settings": {"board": board_data}
+        }
+
+    return jsonify({"success": True, "room_id": room_id})
+
+
+
+
+@app.route("/game_settings_data")
+def game_settings_data():
+    room_id = request.args.get("room")
+    if room_id and room_id in games:
+        return jsonify({"previous_settings": games[room_id].get("last_settings", {})})
+    return jsonify({})
+
+
+@app.route("/game_settings")
+def game_settings():
+    return render_template("game_settings.html")
 
 
 
@@ -225,7 +267,7 @@ def reset_game(room_id):
 
     # Reset game state
     graph.clear_all_values()
-    game["current_player"] = 1
+    game["current_player"] = 3 - game["current_player"]
     score_tracker.reset()
     game_history.clear()
     redo_stack.clear()

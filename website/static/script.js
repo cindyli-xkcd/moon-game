@@ -34,55 +34,35 @@ if (isDebugMode()) {
 
 
 // ----- Board Creation -----
+
 function initBoard(graph) {
   const container = document.getElementById("game-board");
   container.innerHTML = "";
 
-  // Create bold connections canvas
+  // Create canvases as before
   const boldCanvas = document.createElement("canvas");
   boldCanvas.id = "bold-connections-canvas";
-  boldCanvas.style.position = "absolute";
-  boldCanvas.style.top = "0";
-  boldCanvas.style.left = "0";
-  boldCanvas.style.zIndex = "1";
-  boldCanvas.style.pointerEvents = "none";
+  boldCanvas.width = 800;
+  boldCanvas.height = 600;
   container.appendChild(boldCanvas);
 
-  // Create base connections canvas
   const baseCanvas = document.createElement("canvas");
   baseCanvas.id = "connections-canvas";
-  baseCanvas.style.position = "absolute";
-  baseCanvas.style.top = "0";
-  baseCanvas.style.left = "0";
-  baseCanvas.style.zIndex = "0";
-  baseCanvas.style.pointerEvents = "none";
+  baseCanvas.width = 800;
+  baseCanvas.height = 600;
   container.appendChild(baseCanvas);
 
-  // Compute grid size
-  let maxX = 0;
-  let maxY = 0;
-  for (const id in graph.nodes) {
-    const [x, y] = graph.nodes[id].position;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
-  }
-
-  container.style.display = "grid";
-  container.style.gridTemplateColumns = `repeat(${maxX + 1}, 1fr)`;
-  container.style.gridTemplateRows = `repeat(${maxY + 1}, 1fr)`;
-  container.style.gap = "4px";
-
-  // Add squares
   for (const id in graph.nodes) {
     const [x, y] = graph.nodes[id].position;
     const square = document.createElement("div");
     square.id = id;
     square.className = "square";
-    square.style.gridColumn = x + 1;
-    square.style.gridRow = y + 1;
+    square.style.left = `${x - 20}px`;  // center based on your rect draw
+    square.style.top = `${y - 20}px`;
     container.appendChild(square);
   }
 }
+
 
 
 function resizeBoldCanvas() {
@@ -108,6 +88,12 @@ async function main() {
 
   await GameState.init();              // Choose player ID
   await GameState.load();              // Load game state
+
+  // HIGHLIGHT YOUR PLAYER'S SCORE BOX
+  const myScoreBox = document.getElementById(`player${GameState.playerNum}-score`);
+  if (myScoreBox) {
+    myScoreBox.classList.add("my-player");
+  }
 
   Renderer.updateScores(GameState.current.scores);
 

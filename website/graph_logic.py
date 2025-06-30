@@ -51,3 +51,16 @@ class Graph:
             new_graph.nodes[node_id].value = node_info['value']
         return new_graph
 
+
+    @classmethod
+    def from_dict(cls, data):
+        g = cls()
+        for name, node_data in data["nodes"].items():
+            g.add_node(name, position=tuple(node_data.get("position", (0,0))))
+        for name, node_data in data["nodes"].items():
+            node = g.nodes[name]
+            for neighbor_name in node_data.get("neighbors", []):
+                if neighbor_name in g.nodes and g.nodes[neighbor_name] not in node.neighbors:
+                    g.connect_nodes(node, g.nodes[neighbor_name])
+        return g
+

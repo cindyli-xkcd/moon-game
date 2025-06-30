@@ -37,57 +37,9 @@
 <body>
   <h1>🌙 Moon Game</h1>
 
-  <button onclick="startNewGame()">Start New Game</button>
+  <button onclick="window.location.href='/game_settings'">Start New Game</button>
   <button onclick="window.location.href='/graph_builder'">Make a Custom Board</button>
 
-  <!--
-  <h3>Or join an existing room</h3>
-  <input type="text" id="room-input" placeholder="Enter room name">
-  <button onclick="joinRoom()">Join Room</button>
-  -->
-
-  <div id="game-links" style="margin-top: 20px;"></div>
-
-  <script>
-    function startNewGame() {
-      fetch('/new-game-id')
-        .then(response => response.json())
-        .then(data => {
-          const room = data.room_id;
-          const div = document.getElementById("game-links");
-          div.innerHTML = `
-            <p>Share these links with your friend or click to start:</p>
-            <div class="link-block">
-              <a href="/game/${room}?player=1">Play as Player 1</a>
-              <span class="copy" onclick="copyLink('/game/${room}?player=1')">[Copy Link]</span>
-            </div>
-            <div class="link-block">
-              <a href="/game/${room}?player=2">Play as Player 2</a>
-              <span class="copy" onclick="copyLink('/game/${room}?player=2')">[Copy Link]</span>
-            </div>
-          `;
-
-        });
-    }
-
-
-    function copyLink(link) {
-      const fullUrl = window.location.origin + link;
-      navigator.clipboard.writeText(fullUrl).then(() => {
-        alert("Copied to clipboard: " + fullUrl);
-      });
-    }
-
-
-    function joinRoom() {
-      const room = document.getElementById("room-input").value.trim();
-      if (room) {
-        window.location.href = `/game/${room}?player=1`;
-      } else {
-        alert("Please enter a room name.");
-      }
-    }
-  </script>
 
   <div style="margin-top:40px;">
   <details>

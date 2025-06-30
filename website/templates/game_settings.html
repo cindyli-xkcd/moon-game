@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Moon Game Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles/graph_builder.css') }}">
+</head>
+<body>
+<h1>🌓 Game Settings</h1>
+
+<div style="max-width: 600px; margin: auto;">
+  <h3>Choose a Board</h3>
+  <label><input type="radio" name="boardChoice" value="default" checked> Default 5x5 grid</label><br>
+  <label><input type="radio" name="boardChoice" value="custom"> Upload custom board</label><br>
+  
+  <input type="file" id="boardUpload" accept=".json" disabled>
+  <p id="boardStatus">Using default 5x5 grid.</p>
+ 
+
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<div id="links" style="text-align:center; margin-top:20px;"></div>
+
+<script>
+let boardData = null;
+let roomId = null;
+
+// Parse ?room=moon-abc123 from URL if present
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.has("room")) {
+  roomId = urlParams.get("room");
+  fetch(`/game_settings_data?room=${roomId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.previous_settings && data.previous_settings.board) {
+        boardData = data.previous_settings.board;
+        document.getElementById("boardStatus").innerText = "Loaded previous board from room.";
+      }
+    })
+    .catch(() => console.log("No previous settings found for this room."));
+}
+
+// Fallback to localStorage
+if (document.querySelector('input[name="boardChoice"]:checked').value === "custom" 
+    && !boardData && localStorage.getItem("lastBoard")) {
+  boardData = JSON.parse(localStorage.getItem("lastBoard"));
+  document.getElementById("boardStatus").innerText = "Loaded previous board from browser.";
+}
+
+
+
+// Handle file upload
+document.getElementById("boardUpload").addEventListener("change", function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      boardData = JSON.parse(e.target.result);
+      document.getElementById("boardStatus").innerText = "✅ Custom board loaded.";
+    } catch (err) {
+      alert("Invalid JSON file.");
+    }
+  };
+  reader.readAsText(file);
+});
+
+document.querySelectorAll("input[name='boardChoice']").forEach(input => {
+  input.addEventListener("change", () => {
+    if (input.value === "custom" && input.checked) {
+      document.getElementById("boardUpload").disabled = false;
+      document.getElementById("boardStatus").innerText = "No board selected.";
+    } else if (input.value === "default" && input.checked) {
+      document.getElementById("boardUpload").disabled = true;
+      boardData = null; // use default
+      localStorage.removeItem("lastBoard"); // clear localStorage so it doesn't auto-load
+      document.getElementById("boardStatus").innerText = "Using default 5x5 grid.";
+    }
+  });
+});
+
+
+
+function startGame() {
+  fetch("/start_game", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ board: boardData, room_id: roomId })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.room_id) {
+      localStorage.setItem("lastBoard", JSON.stringify(boardData));
+      // If this was an existing room, just reload
+      if (roomId) {
+        window.location.href = `/game/${roomId}?player=1`;
+      } else {
+        document.getElementById("links").innerHTML = `
+          ✅ Game created!<br>
+          <a href="/game/${data.room_id}?player=1">Player 1 Link</a><br>
+          <a href="/game/${data.room_id}?player=2">Player 2 Link</a>
+        `;
+      }
+    } else {
+      alert("Failed to create game.");
+    }
+  })
+  .catch(() => alert("Server error starting game."));
+}
+</script>
+
+</body>
+</html>
+

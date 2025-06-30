@@ -79,8 +79,8 @@ export const Renderer = {
     canvas.height = rect.height;
   
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#ccc";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#888";
+    ctx.lineWidth = 4;
   
     for (const nodeId in graph.nodes) {
       const node = graph.nodes[nodeId];
