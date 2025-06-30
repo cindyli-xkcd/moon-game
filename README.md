@@ -6,10 +6,11 @@ deck setting
 
 (random deck number?)
 
+public board database
+
+random board
+
 tutorial 
 
 wild cards
 
-public board database
-
-random board
