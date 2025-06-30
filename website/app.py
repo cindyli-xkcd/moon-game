@@ -496,7 +496,9 @@ def handle_join(data):
 
 
 
-
+@app.route("/graph_builder")
+def graph_builder():
+    return render_template("graph_builder.html")
 
 
 if __name__ == "__main__":

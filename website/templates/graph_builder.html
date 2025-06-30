@@ -1,45 +1,413 @@
-<!-- templates/graph_builder.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graph Builder</title>
-    <!-- Link to the external CSS file -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='graph_builder.css') }}">
+  <meta charset="UTF-8">
+  <title>Moon Game Board Maker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles/graph_builder.css') }}">
 </head>
 <body>
-    <h1>Graph Builder</h1>
-    <div id="toolbar">
-        <button id="add-node">Add Node</button>
-        <button id="clear-graph">Clear Graph</button>
-        <button id="save-graph">Save Graph</button>
-        <button id="load-graph">Load Graph</button>
-    </div>
-    <div id="mode-indicator">Mode: None</div>
-    <div id="canvas-container">
-        <div id="canvas"></div>
-        <svg id="edges-svg"></svg> <!-- Single SVG for edges -->
-    </div>
-    <div id="value-assignment" style="display: none;">
-        <label for="node-value">Assign Value:</label>
-        <select id="node-value">
-            <option value="">Select</option>
-            <option value="0">🌑</option>
-            <option value="1">🌒</option>
-            <option value="2">🌓</option>
-            <option value="3">🌔</option>
-            <option value="4">🌕</option>
-            <option value="5">🌖</option>
-            <option value="6">🌗</option>
-            <option value="7">🌘</option>
-        </select>
-        <button id="assign-value">Assign</button>
-    </div>
-    <!-- Optional Tooltip Element -->
-    <div id="tooltip" class="tooltip"></div>
-    <!-- Link to the external JavaScript file -->
-    <script src="{{ url_for('static', filename='graph_builder.js') }}"></script>
+<h1>Moon Game Board Maker</h1>
+
+<canvas id="graph-canvas" width="800" height="600"></canvas>
+
+<div id="controls">
+  <button onclick="downloadJSON()">Download JSON</button>
+  <input type="file" id="upload" accept=".json" />
+  <button onclick="clearCanvas()">Clear Canvas</button>
+  <button onclick="undo()">Undo</button>
+  <button onclick="redo()">Redo</button>
+  <button onclick="toggleGrid()">Toggle Grid</button>
+</div>
+
+<div id="status" style="text-align: center; margin-top: 8px;"></div>
+
+<script>
+let canvas = document.getElementById("graph-canvas");
+let ctx = canvas.getContext("2d");
+
+let nodes = {};
+let nodeCounter = 0;
+let selectedNode = null;
+let selectedNodes = [];
+let history = [];
+let future = [];
+
+let showGrid = false;
+let gridSize = 40;
+
+function saveState() {
+  history.push(JSON.stringify(nodes));
+  future = [];
+}
+
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+canvas.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  const [x, y] = getMousePos(e);
+  const clicked = getNodeAt(x, y);
+
+  if (e.button === 2) {
+    if (clicked) {
+      saveState();
+      for (let node of Object.values(nodes)) {
+        node.neighbors = node.neighbors.filter(n => n !== clicked.name);
+      }
+      delete nodes[clicked.name];
+      selectedNodes = selectedNodes.filter(n => n !== clicked);
+      selectedNode = null;
+      draw();
+    } else {
+      const edge = getEdgeAt(x, y);
+      if (edge) {
+        saveState();
+        const [a, b] = edge;
+        a.neighbors = a.neighbors.filter(n => n !== b.name);
+        b.neighbors = b.neighbors.filter(n => n !== a.name);
+        draw();
+      }
+    }
+    return;
+  }
+
+  if (clicked) {
+    if (e.shiftKey) {
+      if (!selectedNode) {
+        selectedNode = clicked;
+      } else if (selectedNode !== clicked) {
+        saveState();
+        connectNodes(selectedNode, clicked);
+        selectedNode = null;
+        draw();
+      } else {
+        selectedNode = null;
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      const idx = selectedNodes.indexOf(clicked);
+      if (idx >= 0) {
+        selectedNodes.splice(idx, 1);
+      } else {
+        selectedNodes.push(clicked);
+      }
+      draw();
+    } else {
+      clicked.dragging = true;
+      if (!selectedNodes.includes(clicked)) {
+        selectedNodes = [clicked];
+      }
+    }
+  } else {
+    if (e.button === 0) {
+      saveState();
+      let snapX = showGrid ? Math.round((x - canvas.width/2) / gridSize) * gridSize + canvas.width/2 : x;
+      let snapY = showGrid ? Math.round((y - canvas.height/2) / gridSize) * gridSize + canvas.height/2 : y;
+      const name = `square-${nodeCounter++}`;
+      nodes[name] = { x: snapX, y: snapY, neighbors: [], dragging: false, name };
+      selectedNode = null;
+      selectedNodes = [];
+      draw();
+    } else {
+      selectedNode = null;
+      selectedNodes = [];
+    }
+  }
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  const [x, y] = getMousePos(e);
+  for (let node of Object.values(nodes)) {
+    if (node.dragging) {
+      const dx = x - node.x;
+      const dy = y - node.y;
+      for (let selNode of selectedNodes.length ? selectedNodes : [node]) {
+        selNode.x += dx;
+        selNode.y += dy;
+        if (showGrid) {
+          selNode.x = Math.round((selNode.x - canvas.width/2) / gridSize) * gridSize + canvas.width/2;
+          selNode.y = Math.round((selNode.y - canvas.height/2) / gridSize) * gridSize + canvas.height/2;
+        }
+      }
+      break;
+    }
+  }
+  draw();
+});
+
+canvas.addEventListener("mouseup", (e) => {
+  let moved = false;
+  for (let node of Object.values(nodes)) {
+    if (node.dragging) moved = true;
+    node.dragging = false;
+  }
+  if (moved) saveState();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Delete" || e.key === "Backspace") {
+    if (selectedNodes.length > 0) {
+      saveState();
+      for (let node of selectedNodes) {
+        for (let n of Object.values(nodes)) {
+          n.neighbors = n.neighbors.filter(nb => nb !== node.name);
+        }
+        delete nodes[node.name];
+      }
+      selectedNodes = [];
+      selectedNode = null;
+      draw();
+    }
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+    undo();
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+    redo();
+  }
+});
+
+function undo() {
+  if (history.length > 0) {
+    future.push(JSON.stringify(nodes));
+    nodes = JSON.parse(history.pop());
+    selectedNodes = [];
+    selectedNode = null;
+    draw();
+  }
+}
+
+function redo() {
+  if (future.length > 0) {
+    history.push(JSON.stringify(nodes));
+    nodes = JSON.parse(future.pop());
+    selectedNodes = [];
+    selectedNode = null;
+    draw();
+  }
+}
+
+function toggleGrid() {
+  showGrid = !showGrid;
+  draw();
+}
+
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+function getNodeAt(x, y) {
+  for (let node of Object.values(nodes)) {
+    const dx = node.x - x;
+    const dy = node.y - y;
+    if (Math.hypot(dx, dy) < 20) return node;
+  }
+  return null;
+}
+
+function getEdgeAt(x, y) {
+  for (let node of Object.values(nodes)) {
+    for (let neighborName of node.neighbors) {
+      const neighbor = nodes[neighborName];
+      if (neighbor && node.name < neighbor.name) {
+        const dist = pointLineDistance(x, y, node.x, node.y, neighbor.x, neighbor.y);
+        if (dist < 8) return [node, neighbor];
+      }
+    }
+  }
+  return null;
+}
+
+function pointLineDistance(px, py, x1, y1, x2, y2) {
+  const A = px - x1;
+  const B = py - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+
+  const dot = A * C + B * D;
+  const len_sq = C * C + D * D;
+  let param = -1;
+  if (len_sq !== 0) param = dot / len_sq;
+
+  let xx, yy;
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  }
+  else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  }
+  else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  const dx = px - xx;
+  const dy = py - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function connectNodes(a, b) {
+  if (!a.neighbors.includes(b.name)) a.neighbors.push(b.name);
+  if (!b.neighbors.includes(a.name)) b.neighbors.push(a.name);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (showGrid) {
+    ctx.strokeStyle = "#eee";
+    ctx.lineWidth = 1;
+
+    for (let x = canvas.width / 2; x < canvas.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+    for (let x = canvas.width / 2 - gridSize; x > 0; x -= gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+
+    for (let y = canvas.height / 2; y < canvas.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+    for (let y = canvas.height / 2 - gridSize; y > 0; y -= gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+  }
+
+  // center crosshair
+  ctx.strokeStyle = "#ccc";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, 0);
+  ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height / 2);
+  ctx.lineTo(canvas.width, canvas.height / 2);
+  ctx.stroke();
+
+  for (let node of Object.values(nodes)) {
+    for (let neighborName of node.neighbors) {
+      const neighbor = nodes[neighborName];
+      if (neighbor && node.name < neighbor.name) {
+        ctx.beginPath();
+        ctx.moveTo(node.x, node.y);
+        ctx.lineTo(neighbor.x, neighbor.y);
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = "#999";
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+    }
+  }
+
+  for (let node of Object.values(nodes)) {
+    ctx.beginPath();
+    ctx.rect(node.x - 20, node.y - 20, 40, 40);
+    if (selectedNodes.includes(node)) {
+      ctx.fillStyle = "#88f";
+    } else if (node === selectedNode) {
+      ctx.fillStyle = "#f90";
+    } else {
+      ctx.fillStyle = "#eee";
+    }
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function downloadJSON() {
+  const graph = { nodes: {} };
+  for (let [name, node] of Object.entries(nodes)) {
+    graph.nodes[name] = {
+      name: name,
+      value: null,
+      neighbors: node.neighbors,
+      position: [Math.round(node.x), Math.round(node.y)]
+    };
+  }
+
+  let boardName = prompt("Enter a name for your board:", "custom_board");
+  if (boardName === null) return;
+  boardName = boardName.trim();
+  if (!boardName) boardName = "custom_board";
+  boardName = boardName.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
+
+  const blob = new Blob([JSON.stringify(graph, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${boardName}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearCanvas() {
+  saveState();
+  nodes = {};
+  nodeCounter = 0;
+  selectedNode = null;
+  selectedNodes = [];
+  draw();
+  document.getElementById("status").innerText = "🧹 Canvas cleared.";
+}
+
+document.getElementById("upload").addEventListener("change", function () {
+  const file = this.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const graph = JSON.parse(e.target.result);
+      saveState();
+      nodes = {};
+      nodeCounter = 0;
+      for (let [name, nodeData] of Object.entries(graph.nodes)) {
+        nodes[name] = {
+          x: nodeData.position[0],
+          y: nodeData.position[1],
+          neighbors: nodeData.neighbors,
+          name
+        };
+        nodeCounter++;
+      }
+      selectedNodes = [];
+      selectedNode = null;
+      draw();
+      document.getElementById("status").innerText = "✅ Graph loaded successfully.";
+    } catch (err) {
+      alert("Invalid JSON file");
+      document.getElementById("status").innerText = "❌ Failed to load graph.";
+    }
+  };
+  reader.readAsText(file);
+});
+
+draw();
+</script>
+
+<p style="text-align: center;">
+  Click to create a node. Hold shift and click on two nodes to connect them. 
+  Ctrl-click to multi-select nodes. Drag selected nodes to move them together. 
+  Press Delete to remove selected nodes. Right-click on nodes or edges to delete. 
+  Use Undo / Redo buttons or Ctrl+Z / Ctrl+Y. Toggle grid to snap placement.
+</p>
+
 </body>
 </html>
 
