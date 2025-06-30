@@ -2,21 +2,12 @@ Trying to make an online 2-player version of Google Doodle's Rise of the Full Mo
 
 Things to work on:
 
-scoring
+deck
 
- 	 ✅ phase pairs
+tutorial 
 
-	 ✅ full moon pairs
+wild cards
 
- 	 ✅ cycles
+public board database
 
-
-
-animations
-
-board maker
-
-deck 
-
-multiplayer
-
+random deck
