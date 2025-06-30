@@ -81,6 +81,11 @@ function resizeBoldCanvas() {
 }
 
 
+window.initBoard = initBoard;
+window.resizeBoldCanvas = resizeBoldCanvas;
+
+
+
 
 // ----- Game Flow -----
 async function main() {
@@ -286,7 +291,7 @@ if (resetBtn) {
 
       if (result.success) {
         window.isGameOver = false;
-        Renderer.showCurrentPlayer("New Game");
+ 
         // Clear selected card state
         selectedPhase = null;
         const prev = document.querySelector("#hand .hand-card.selected");
@@ -295,6 +300,9 @@ if (resetBtn) {
         GameState.current = result.state;
         Renderer.finalize(GameState.current);
         Renderer.showHand(GameState.current.hand);  
+	Renderer.showCurrentPlayer(null, null, `New game: Player ${GameState.current.current_player} start`);
+
+	console.log("New game")
         console.log("Hand after reset:", GameState.current.hand);
 
         const finalScoreDiv = document.getElementById("final-scores");
@@ -429,4 +437,37 @@ if (fillBoardBtn) {
     }
   });
 }
+
+// New Game Button
+const newGameBtn = document.getElementById("new-game-button");
+if (newGameBtn) {
+  newGameBtn.addEventListener("click", () => {
+    if (!confirm("Are you sure you want to start a new game?")) return;
+
+    const params = new URLSearchParams(window.location.search);
+    let room = params.get("room");
+    let player = params.get("player");
+
+    // Fallback: get room from path like /game/moon-abc123
+    if (!room) {
+      const parts = window.location.pathname.split("/");
+      if (parts.length >= 3 && parts[1] === "game") {
+        room = parts[2];
+      }
+    }
+
+    if (!player) {
+      player = params.get("player") || GameState.playerNum;  // fallback to GameState.playerNum if you track it there
+    }
+
+    let target = "/game_settings";
+    if (room && player) {
+      target += `?room=${room}&player=${player}`;
+    } else if (room) {
+      target += `?room=${room}`;
+    }
+    window.location.href = target;
+  });
+}
+
 

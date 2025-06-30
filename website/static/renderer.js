@@ -250,16 +250,23 @@ export const Renderer = {
     }
   },
 
-  showCurrentPlayer(playerNum) {
+  showCurrentPlayer(playerNum, myPlayerNum = null, forceMessage = null) {
     const banner = document.getElementById("turn-indicator");
     if (!banner) return;
   
-    if (playerNum === "Game Over" || playerNum === "New Game") {
+    if (forceMessage) {
+      banner.innerText = forceMessage;
+    } else if (typeof playerNum === "string" && playerNum.startsWith("New game:")) {
       banner.innerText = playerNum;
+    } else if (playerNum === "Game Over" || playerNum === "New Game") {
+      banner.innerText = playerNum;
+    } else if (myPlayerNum !== null && playerNum === myPlayerNum) {
+      banner.innerText = "Your turn";
     } else {
       banner.innerText = `Player ${playerNum}'s turn`;
     }
   },
+
 
   
 

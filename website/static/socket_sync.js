@@ -23,55 +23,60 @@ export const SocketSync = {
       logWithTime("[SocketSync] Disconnected from server");
     });
 
-    this.socket.on("state_updated", async (gameState) => {
-      logWithTime("[SocketSync] Received 'state_updated' event");
+this.socket.on("state_updated", async (gameState) => {
+  logWithTime("[SocketSync] Received 'state_updated' event");
 
-      await GameState.load(gameState);
+  const isReset = gameState.events && gameState.events.includes("reset");
 
-      // Explicitly update scores based on conditions
-      if (!window.animationsEnabled || gameState.new_game || gameState.is_undo || gameState.debug_fill) {
-        Renderer.updateScores(gameState.scores);
+  if (isReset) {
+    console.log("[SocketSync] Detected reset event — rebuilding board.");
+    initBoard(gameState.graph);
+    resizeBoldCanvas();
+  }
+
+  await GameState.load(gameState);
+
+  if (!window.animationsEnabled || gameState.new_game || gameState.is_undo || gameState.debug_fill) {
+    Renderer.updateScores(gameState.scores);
+  }
+
+  Renderer.finalize(gameState);
+
+  if (gameState.new_game) {
+    Renderer.clearBoldCanvas();
+    const finalScoreDiv = document.getElementById("final-scores");
+    if (finalScoreDiv) finalScoreDiv.style.display = "none";
+  }
+
+  if (gameState.new_game) {
+    try {
+      let url = `/state/${window.roomId}`;
+      if (window.isDebugMode && window.isDebugMode()) {
+        url += "?debug=true";
       }
+      const res = await fetch(url, {
+        headers: { "X-Player-ID": `player${GameState.playerNum}` }
+      });
+      const data = await res.json();
+      GameState.current.hand = data.hand;
+      Renderer.showHand(data.hand);
+    } catch (e) {
+      console.error("Failed to fetch hand after reset:", e);
+    }
+  }
 
-      Renderer.finalize(gameState);
+  if (Array.isArray(gameState.events) && gameState.events.length > 0 && window.animationsEnabled) {
+    window.isAnimating = true;
+    await EventPlayer.play(gameState.events);
+    window.isAnimating = false;
+  }
 
-      if (gameState.new_game) {
-        Renderer.clearBoldCanvas();
-        const finalScoreDiv = document.getElementById("final-scores");
-        if (finalScoreDiv) finalScoreDiv.style.display = "none";
-      }
+  if (gameState.game_over) {
+    window.isGameOver = true;
+    await window.handleGameOver(gameState);
+  }
+});
 
-      // Re-fetch hand on new game or after resets
-      if (gameState.new_game) {
-        try {
-          let url = `/state/${window.roomId}`;
-          if (window.isDebugMode && window.isDebugMode()) {
-            url += "?debug=true";
-          }
-          const res = await fetch(url, {
-            headers: { "X-Player-ID": `player${GameState.playerNum}` }
-          });
-          const data = await res.json();
-          GameState.current.hand = data.hand;
-          Renderer.showHand(data.hand);
-        } catch (e) {
-          console.error("Failed to fetch hand after reset:", e);
-        }
-      }
-
-      // Play animations if appropriate
-      if (Array.isArray(gameState.events) && gameState.events.length > 0 && window.animationsEnabled) {
-        window.isAnimating = true;
-        await EventPlayer.play(gameState.events);
-        window.isAnimating = false;
-      }
-
-      // Handle game over
-      if (gameState.game_over) {
-        window.isGameOver = true;
-        await window.handleGameOver(gameState);
-      }
-    });
   }
 };
 

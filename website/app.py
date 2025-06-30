@@ -88,6 +88,7 @@ def start_game():
         games[room_id]["graph"] = graph
         games[room_id]["score_tracker"] = ScoreTracker()
         games[room_id]["deck_manager"] = DeckManager()
+        games[room_id]["starting_player"] = 1
         games[room_id]["current_player"] = 1
         games[room_id]["game_history"] = []
         games[room_id]["redo_stack"] = []
@@ -98,11 +99,28 @@ def start_game():
             "graph": graph,
             "score_tracker": ScoreTracker(),
             "deck_manager": DeckManager(),
+            "starting_player": 1,
             "current_player": 1,
             "game_history": [],
             "redo_stack": [],
             "last_settings": {"board": board_data}
         }
+
+    # emit state_updated with a clear reset event
+    socketio.emit("state_updated", {
+        "graph": graph.to_dict(),
+        "scores": games[room_id]["score_tracker"].get_scores(),
+        "claimed_cards": games[room_id]["score_tracker"].get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": [],
+            "full_moon_pairs": [],
+            "lunar_cycles": []
+        },
+        "current_player": games[room_id]["current_player"],
+        "events": ["reset"],
+        "new_game": True,
+        "game_over": False
+    }, to=room_id)
 
     return jsonify({"success": True, "room_id": room_id})
 
@@ -267,7 +285,8 @@ def reset_game(room_id):
 
     # Reset game state
     graph.clear_all_values()
-    game["current_player"] = 3 - game["current_player"]
+    game["starting_player"] = 3 - game["starting_player"]
+    game["current_player"] = game["starting_player"]
     score_tracker.reset()
     game_history.clear()
     redo_stack.clear()

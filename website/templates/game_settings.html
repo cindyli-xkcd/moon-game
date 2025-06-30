@@ -15,7 +15,6 @@
   
   <input type="file" id="boardUpload" accept=".json" disabled>
   <p id="boardStatus">Using default 5x5 grid.</p>
- 
 
   <button onclick="startGame()">Start Game</button>
 </div>
@@ -31,14 +30,20 @@ const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.has("room")) {
   roomId = urlParams.get("room");
   fetch(`/game_settings_data?room=${roomId}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data.previous_settings && data.previous_settings.board) {
+  .then(res => res.json())
+  .then(data => {
+    const customRadio = document.querySelector("input[name='boardChoice'][value='custom']");
+    const fileInput = document.getElementById("boardUpload");
+
+    if (data.previous_settings && data.previous_settings.board) {
+      // Only set boardData if custom is selected and no file chosen
+      if (customRadio.checked && !fileInput.files.length) {
         boardData = data.previous_settings.board;
-        document.getElementById("boardStatus").innerText = "Loaded previous board from room.";
+        document.getElementById("boardStatus").innerText = "✅ Loaded previous board from room.";
       }
-    })
-    .catch(() => console.log("No previous settings found for this room."));
+    }
+  })
+  .catch(() => console.log("No previous settings found for this room."));
 }
 
 // Fallback to localStorage
@@ -47,8 +52,6 @@ if (document.querySelector('input[name="boardChoice"]:checked').value === "custo
   boardData = JSON.parse(localStorage.getItem("lastBoard"));
   document.getElementById("boardStatus").innerText = "Loaded previous board from browser.";
 }
-
-
 
 // Handle file upload
 document.getElementById("boardUpload").addEventListener("change", function() {
@@ -70,19 +73,21 @@ document.querySelectorAll("input[name='boardChoice']").forEach(input => {
   input.addEventListener("change", () => {
     if (input.value === "custom" && input.checked) {
       document.getElementById("boardUpload").disabled = false;
+      boardData = null; // ensure fresh start
       document.getElementById("boardStatus").innerText = "No board selected.";
     } else if (input.value === "default" && input.checked) {
       document.getElementById("boardUpload").disabled = true;
-      boardData = null; // use default
-      localStorage.removeItem("lastBoard"); // clear localStorage so it doesn't auto-load
+      boardData = null; // clear it
+      localStorage.removeItem("lastBoard");
       document.getElementById("boardStatus").innerText = "Using default 5x5 grid.";
     }
   });
 });
 
-
-
 function startGame() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentPlayer = urlParams.get("player") || "1"; // default to 1
+
   fetch("/start_game", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -94,7 +99,7 @@ function startGame() {
       localStorage.setItem("lastBoard", JSON.stringify(boardData));
       // If this was an existing room, just reload
       if (roomId) {
-        window.location.href = `/game/${roomId}?player=1`;
+        window.location.href = `/game/${roomId}?player=${currentPlayer}`;
       } else {
         document.getElementById("links").innerHTML = `
           ✅ Game created!<br>
