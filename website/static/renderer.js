@@ -27,32 +27,42 @@ export const Renderer = {
   },
 
   drawBoard(graph, claimedCards = {}) {
-    for (const nodeId in graph.nodes) {
-      const node = graph.nodes[nodeId];
-      const el = document.getElementById(nodeId);
-      if (!el) continue;
-  
-  
-      // Add a debug label span for the nodeId
-      el.innerHTML = node.value === null ? "" : `<img src="${getPhaseImage(node.value)}" alt="moon phase" width="32" height="32">`;
+  for (const nodeId in graph.nodes) {
+    const node = graph.nodes[nodeId];
+    const el = document.getElementById(nodeId);
+    if (!el) continue;
 
-  
-      el.onclick = () => {
-        if (Renderer.onSquareClicked) {
-          Renderer.onSquareClicked(nodeId);
-        }
-      };
-  
-      // Apply claimed card styling
-      el.classList.remove("claimed-by-1", "claimed-by-2");
-      if (claimedCards[nodeId] === 1) {
-        el.classList.add("claimed-by-1");
-      } else if (claimedCards[nodeId] === 2) {
-        el.classList.add("claimed-by-2");
+    let img = el.querySelector("img");
+    if (node.value === null) {
+      // Remove image if exists
+      if (img) img.remove();
+    } else {
+      // Create image if missing
+      if (!img) {
+        img = document.createElement("img");
+        img.width = 32;
+        img.height = 32;
+        img.alt = "moon phase";
+        el.appendChild(img);
       }
+      img.src = getPhaseImage(node.value);
     }
-  },
 
+    el.onclick = () => {
+      if (Renderer.onSquareClicked) {
+        Renderer.onSquareClicked(nodeId);
+      }
+    };
+
+    // Apply claimed card styling
+    el.classList.remove("claimed-by-1", "claimed-by-2");
+    if (claimedCards[nodeId] === 1) {
+      el.classList.add("claimed-by-1");
+    } else if (claimedCards[nodeId] === 2) {
+      el.classList.add("claimed-by-2");
+    }
+  }
+},
 
   
   drawBaseConnections(graph) {

@@ -252,8 +252,10 @@ body {
 
 
 .hand-card {
-  font-size: 32px;
-  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
   margin: 6px;
   border: 2px solid #aaa;
   border-radius: 8px;
@@ -261,6 +263,13 @@ body {
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
+
+.hand-card img {
+  width: 48px;
+  height: 48px;
+  display: block;
+}
+
 
 .hand-card:hover {
   background-color: #eee;
