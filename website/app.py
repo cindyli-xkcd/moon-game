@@ -1,14 +1,18 @@
 import eventlet
 eventlet.monkey_patch()
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_socketio import SocketIO, emit, join_room
+
+from copy import deepcopy
+import random
+import string
+
 from graph_logic import Graph
 from score_tracker import ScoreTracker
 from strategies.phase_pair import PhasePair
 from strategies.full_moon_pair import FullMoonPair
 from strategies.lunar_cycle import LunarCycle
 from deck_manager import DeckManager
-from copy import deepcopy
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")  # allow any origin for now
@@ -63,9 +67,17 @@ def get_or_create_game(room_id):
 def game_room(room_id):
     return render_template("index.html")
 
+@app.route("/")
+def landing():
+    return render_template("landing.html")
 
 
 
+@app.route("/new-game-id")
+def new_game_id():
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    room_id = f"moon-{suffix}"
+    return jsonify({"room_id": room_id})
 
 
 
@@ -486,6 +498,9 @@ def handle_join(data):
 
 
 
+
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, host="0.0.0.0", port=port, debug=False)
 

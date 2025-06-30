@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Moon Game</title>
+  <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Moon Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 18px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #game-links {
+      margin-top: 30px;
+    }
+    .link-block {
+      margin: 10px 0;
+    }
+    .copy {
+      margin-left: 10px;
+      cursor: pointer;
+      color: blue;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌙 Moon Game</h1>
+
+  <button onclick="startNewGame()">Start New Game</button>
+
+  <!--
+  <h3>Or join an existing room</h3>
+  <input type="text" id="room-input" placeholder="Enter room name">
+  <button onclick="joinRoom()">Join Room</button>
+  -->
+
+  <div id="game-links" style="margin-top: 20px;"></div>
+
+  <script>
+    function startNewGame() {
+      fetch('/new-game-id')
+        .then(response => response.json())
+        .then(data => {
+          const room = data.room_id;
+          const div = document.getElementById("game-links");
+          div.innerHTML = `
+            <p>Share these links with your friend or click to start:</p>
+            <div class="link-block">
+              <a href="/game/${room}?player=1">Play as Player 1</a>
+              <span class="copy" onclick="copyLink('/game/${room}?player=1')">[Copy Link]</span>
+            </div>
+            <div class="link-block">
+              <a href="/game/${room}?player=2">Play as Player 2</a>
+              <span class="copy" onclick="copyLink('/game/${room}?player=2')">[Copy Link]</span>
+            </div>
+          `;
+
+        });
+    }
+
+
+    function copyLink(link) {
+      const fullUrl = window.location.origin + link;
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        alert("Copied to clipboard: " + fullUrl);
+      });
+    }
+
+
+    function joinRoom() {
+      const room = document.getElementById("room-input").value.trim();
+      if (room) {
+        window.location.href = `/game/${room}?player=1`;
+      } else {
+        alert("Please enter a room name.");
+      }
+    }
+  </script>
+</body>
+</html>
+
