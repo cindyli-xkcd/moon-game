@@ -2,7 +2,9 @@ Trying to make an online 2-player version of Google Doodle's Rise of the Full Mo
 
 Things to work on:
 
-deck
+deck setting 
+
+(random deck number?)
 
 tutorial 
 
@@ -10,4 +12,4 @@ wild cards
 
 public board database
 
-random deck
+random board
