@@ -1,10 +1,21 @@
 // renderer.js
 
-const PHASE_EMOJIS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+const PHASE_IMAGES = [
+  "/static/images/moon/new_moon.png",
+  "/static/images/moon/waxing_crescent.png",
+  "/static/images/moon/first_quarter.png",
+  "/static/images/moon/waxing_gibbous.png",
+  "/static/images/moon/full_moon.png",
+  "/static/images/moon/waning_gibbous.png",
+  "/static/images/moon/last_quarter.png",
+  "/static/images/moon/waning_crescent.png"
+];
 
-function getPhaseEmoji(phase) {
-  return PHASE_EMOJIS[phase] ?? "?";
+function getPhaseImage(phase) {
+  return PHASE_IMAGES[phase] ?? "";
 }
+
+
 
 
 export const Renderer = {
@@ -21,11 +32,10 @@ export const Renderer = {
       const el = document.getElementById(nodeId);
       if (!el) continue;
   
-      // Show phase emoji if value exists
-      const emoji = node.value === null ? "" : getPhaseEmoji(node.value);
   
       // Add a debug label span for the nodeId
-      el.innerHTML = `${emoji}<span class="node-label">${nodeId}</span>`;
+      el.innerHTML = node.value === null ? "" : `<img src="${getPhaseImage(node.value)}" alt="moon phase" width="32" height="32">`;
+
   
       el.onclick = () => {
         if (Renderer.onSquareClicked) {
@@ -197,7 +207,7 @@ export const Renderer = {
   
     hand.forEach(phase => {
       const btn = document.createElement("button");
-      btn.innerText = getPhaseEmoji(phase);
+      btn.innerHTML = `<img src="${getPhaseImage(phase)}" alt="phase" width="32" height="32">`;
       btn.dataset.phase = phase;
       btn.className = "hand-card";
       btn.onclick = () => {
