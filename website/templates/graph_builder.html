@@ -31,6 +31,11 @@ let selectedNode = null;
 let selectedNodes = [];
 let history = [];
 let future = [];
+let clipboard = [];
+let isMarqueeSelecting = false;
+let marqueeStart = null;
+let marqueeEnd = null;
+let qKeyHeld = false;
 
 let showGrid = false;
 let gridSize = 40;
@@ -42,9 +47,21 @@ function saveState() {
 
 canvas.addEventListener("contextmenu", e => e.preventDefault());
 
+
 canvas.addEventListener("mousedown", (e) => {
   e.preventDefault();
   const [x, y] = getMousePos(e);
+
+  console.log("mousedown", { qKeyHeld });
+
+  if (qKeyHeld && e.button === 0) {
+    isMarqueeSelecting = true;
+    marqueeStart = { x, y };
+    marqueeEnd = { x, y };
+    console.log("Started marquee selection");
+    return; 
+  }
+
   const clicked = getNodeAt(x, y);
 
   if (e.button === 2) {
@@ -97,7 +114,13 @@ canvas.addEventListener("mousedown", (e) => {
       }
     }
   } else {
-    if (e.button === 0) {
+    if (selectedNodes.length > 0) {
+      // Clicked on empty space: just clear selection first
+      selectedNodes = [];
+      selectedNode = null;
+      draw();
+    } else if (e.button === 0) {
+      // Only create new node if nothing was selected
       saveState();
       let snapX = showGrid ? Math.round((x - canvas.width/2) / gridSize) * gridSize + canvas.width/2 : x;
       let snapY = showGrid ? Math.round((y - canvas.height/2) / gridSize) * gridSize + canvas.height/2 : y;
@@ -106,15 +129,21 @@ canvas.addEventListener("mousedown", (e) => {
       selectedNode = null;
       selectedNodes = [];
       draw();
-    } else {
-      selectedNode = null;
-      selectedNodes = [];
     }
   }
 });
 
+
+
+
 canvas.addEventListener("mousemove", (e) => {
   const [x, y] = getMousePos(e);
+  if (isMarqueeSelecting) {
+    marqueeEnd = { x, y };
+    draw();
+    return; // skip normal move logic
+  }
+
   for (let node of Object.values(nodes)) {
     if (node.dragging) {
       const dx = x - node.x;
@@ -134,6 +163,18 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("mouseup", (e) => {
+  if (isMarqueeSelecting) {
+    saveState();
+    selectedNodes = Object.values(nodes).filter(node =>
+      node.x >= Math.min(marqueeStart.x, marqueeEnd.x) &&
+      node.x <= Math.max(marqueeStart.x, marqueeEnd.x) &&
+      node.y >= Math.min(marqueeStart.y, marqueeEnd.y) &&
+      node.y <= Math.max(marqueeStart.y, marqueeEnd.y)
+    );
+    isMarqueeSelecting = false;
+    draw();
+    return;
+  }
   let moved = false;
   for (let node of Object.values(nodes)) {
     if (node.dragging) moved = true;
@@ -142,7 +183,16 @@ canvas.addEventListener("mouseup", (e) => {
   if (moved) saveState();
 });
 
+
+
+document.addEventListener("keyup", (e) => {
+  if (e.key.toLowerCase() === "q") qKeyHeld = false;
+});
+
+
 document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "q") qKeyHeld = true;
+
   if (e.key === "Delete" || e.key === "Backspace") {
     if (selectedNodes.length > 0) {
       saveState();
@@ -165,6 +215,66 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "y") {
     redo();
   }
+
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+    if (selectedNodes.length > 0) {
+      e.preventDefault(); // avoid scrolling
+      saveState();
+      let dx = 0, dy = 0;
+      if (e.key === "ArrowLeft") dx = -1;
+      if (e.key === "ArrowRight") dx = 1;
+      if (e.key === "ArrowUp") dy = -1;
+      if (e.key === "ArrowDown") dy = 1;
+  
+      for (let node of selectedNodes) {
+        node.x += dx;
+        node.y += dy;
+      }
+      draw();
+    }
+  }
+
+  // Copy
+  if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+    if (selectedNodes.length > 0) {
+      clipboard = selectedNodes.map(node => ({
+        x: node.x,
+        y: node.y,
+        neighbors: [...node.neighbors],
+        name: node.name
+      }));
+      console.log("Copied nodes to clipboard:", clipboard);
+    }
+  }
+  
+  // Paste
+  if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+    if (clipboard.length > 0) {
+      saveState();
+      let nameMap = {};
+      for (let old of clipboard) {
+        const newName = `square-${nodeCounter++}`;
+        nameMap[old.name] = newName;
+        nodes[newName] = {
+          x: old.x + 20, // offset so they don't overlap
+          y: old.y + 20,
+          neighbors: [],
+          name: newName
+        };
+      }
+      // Recreate edges
+      for (let old of clipboard) {
+        const newNode = nodes[nameMap[old.name]];
+        newNode.neighbors = old.neighbors
+          .filter(n => nameMap[n])
+          .map(n => nameMap[n]);
+      }
+      selectedNodes = Object.values(nameMap).map(name => nodes[name]);
+      draw();
+    }
+  }
+   
+
 });
 
 function undo() {
@@ -286,8 +396,28 @@ function draw() {
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
     }
+
+    
+
   }
 
+  if (isMarqueeSelecting && marqueeStart && marqueeEnd) {
+        ctx.fillStyle = "rgba(100, 100, 255, 0.2)";
+        ctx.strokeStyle = "rgba(100, 100, 255, 0.8)";
+        ctx.lineWidth = 1;
+        ctx.fillRect(
+          Math.min(marqueeStart.x, marqueeEnd.x),
+          Math.min(marqueeStart.y, marqueeEnd.y),
+          Math.abs(marqueeEnd.x - marqueeStart.x),
+          Math.abs(marqueeEnd.y - marqueeStart.y)
+        );
+        ctx.strokeRect(
+          Math.min(marqueeStart.x, marqueeEnd.x),
+          Math.min(marqueeStart.y, marqueeEnd.y),
+          Math.abs(marqueeEnd.x - marqueeStart.x),
+          Math.abs(marqueeEnd.y - marqueeStart.y)
+        );
+      }
   // center crosshair
   ctx.strokeStyle = "#ccc";
   ctx.lineWidth = 1;
@@ -402,10 +532,25 @@ draw();
 </script>
 
 <p style="text-align: center;">
-  Click to create a node. Hold shift and click on two nodes to connect them. 
-  Ctrl-click to multi-select nodes. Drag selected nodes to move them together. 
-  Press Delete to remove selected nodes. Right-click on nodes or edges to delete. 
-  Use Undo / Redo buttons or Ctrl+Z / Ctrl+Y. Toggle grid to snap placement.
+<div style="display: flex; justify-content: center; gap: 40px; max-width: 1000px; margin: 20px auto;">
+  <ul style="text-align: left;">
+    <li>Click to create a node.</li>
+    <li>Hold <strong>Shift</strong> and click on two nodes to connect them.</li>
+    <li><strong>Ctrl-click</strong> (Cmd-click) to multi-select.</li>
+    <li>Hold <strong>Q</strong> and drag to select multiple nodes.</li>
+    <li>Drag selected nodes to move them.</li>
+    <li>Use <strong>arrow keys</strong> to nudge nodes.</li>
+  </ul>
+  <ul style="text-align: left;">
+    <li>Press <strong>Ctrl+C</strong> / <strong>Ctrl+V</strong> to copy & paste.</li>
+    <li>Press <strong>Delete</strong> to remove selected nodes.</li>
+    <li>Right-click to delete nodes or edges.</li>
+    <li>Use <strong>Undo</strong> / <strong>Redo</strong> or <strong>Ctrl+Z</strong> / <strong>Ctrl+Y</strong>.</li>
+    <li>Toggle grid to snap placement.</li>
+    <li>Download or upload your board as JSON.</li>
+  </ul>
+</div>
+
 </p>
 
 </body>
