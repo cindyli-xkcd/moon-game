@@ -295,7 +295,22 @@ export const Renderer = {
     }
 
     this.showCurrentPlayer(state.current_player);
+  },
+  
+
+  replenishOpponentHand() {
+  const hand = document.getElementById("opponent-hand");
+  if (!hand) return;
+
+  const currentCount = hand.querySelectorAll(".card-back").length;
+  for (let i = currentCount; i < 3; i++) {
+    const card = document.createElement("div");
+    card.className = "card-back";
+    hand.appendChild(card);
   }
+}
+
+
 
 
 };

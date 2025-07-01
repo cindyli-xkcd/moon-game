@@ -249,7 +249,12 @@ def place_value(room_id):
         "current_player": game["current_player"],
         "events": all_events,
         "game_over": board_full,
-        "final_scores": final_scores
+        "final_scores": final_scores,
+        "last_move": {
+            "player": player,
+            "node": node_name,
+            "value": value
+            }
     }, to=room_id)
 
     return jsonify({

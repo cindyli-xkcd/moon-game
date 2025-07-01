@@ -319,3 +319,25 @@ body {
   transform: scale(0.96);
 }
 
+#opponent-hand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.card-back {
+  width: 60px;
+  height: 80px;
+  background: url('/static/images/star.png') center/contain no-repeat;
+  background-color: #333;
+  background-size: 70%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 1px solid #999;
+  border-radius: 8px;
+  margin: 0 5px;
+}
+
+
+
+

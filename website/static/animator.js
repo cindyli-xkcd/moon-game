@@ -2,6 +2,18 @@
 
 import { sleep, logWithTime } from "./utils.js";
 
+const PHASE_IMAGES = [
+  "new_moon.png",
+  "waxing_crescent.png",
+  "first_quarter.png",
+  "waxing_gibbous.png",
+  "full_moon.png",
+  "waning_gibbous.png",
+  "last_quarter.png",
+  "waning_crescent.png"
+];
+
+
 export const Animator = {
   async animatePairConnection(pair) {
     await pulseNodes(pair);
@@ -112,10 +124,104 @@ export const Animator = {
       await this.animateStarsFromPoint(center.x, center.y, player, 1);
       await sleep(delay);
     }
-  }
+  },
 
   
+
+
+// -----------------------------
+// Opponent animations
+// ----------------------------
+
+async animateOpponentCardToSquare(nodeId, phase) {
+  return new Promise(resolve => {
+    const hand = document.getElementById("opponent-hand");
+    const square = document.getElementById(nodeId);
+    if (!hand || !square) {
+      console.warn("[Animator] Missing opponent hand or target square:", hand, square);
+      resolve();
+      return;
+    }
+
+    const card = hand.querySelector(".card-back");
+    if (!card) {
+      console.warn("[Animator] No card in opponent hand to animate.");
+      resolve();
+      return;
+    }
+
+    // Get position BEFORE removing from DOM
+    const cardRect = card.getBoundingClientRect();
+    const squareRect = square.getBoundingClientRect();
+
+    // Clone the card for animation
+    const cardClone = card.cloneNode(true);
+    document.body.appendChild(cardClone);
+
+    // Now remove it from the hand so it visually disappears
+    hand.removeChild(card);
+
+    // Use position: fixed so it matches viewport like stars
+    cardClone.style.position = "fixed";
+    cardClone.style.left = `${cardRect.left}px`;
+    cardClone.style.top = `${cardRect.top}px`;
+    cardClone.style.width = `${cardRect.width}px`;
+    cardClone.style.height = `${cardRect.height}px`;
+    cardClone.style.transition = "all 0.6s ease-out";
+    cardClone.style.zIndex = "1000";
+
+    // Force reflow to ensure initial position registers
+    cardClone.offsetHeight;
+
+    // Compute target center relative to viewport
+    const targetX = squareRect.left + squareRect.width / 2 - cardRect.width / 2;
+    const targetY = squareRect.top + squareRect.height / 2 - cardRect.height / 2;
+
+    console.log("[Animator DEBUG] (fixed)", {
+      cardLeft: cardRect.left, cardTop: cardRect.top,
+      targetX, targetY
+    });
+
+    // Animate to the target
+    setTimeout(() => {
+      cardClone.style.left = `${targetX}px`;
+      cardClone.style.top = `${targetY}px`;
+    }, 0);
+
+    // After flight, flip to reveal the phase
+    setTimeout(() => {
+      const imgFile = PHASE_IMAGES[phase] || "new_moon.png";
+      cardClone.style.background = `white url('/static/images/moon/${imgFile}') center/contain no-repeat`;
+      cardClone.style.border = "1px solid #888";
+      cardClone.style.transform = "rotateY(180deg) scaleX(-1)";
+      cardClone.style.transition = "transform 0.4s";
+
+      setTimeout(() => {
+        document.body.removeChild(cardClone);
+
+        // Draw the actual phase on the square
+        const img = document.createElement("img");
+        img.src = `/static/images/moon/${imgFile}`;
+        img.width = 32;
+        img.height = 32;
+        img.alt = "moon phase";
+        square.appendChild(img);
+
+        resolve();
+      }, 400);
+    }, 600);
+  });
+}
+
+
+
 };
+
+
+
+
+
+
 
 // ------------------------------
 //  Shared Helpers (not exported)

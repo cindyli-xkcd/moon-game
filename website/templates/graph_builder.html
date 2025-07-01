@@ -52,13 +52,11 @@ canvas.addEventListener("mousedown", (e) => {
   e.preventDefault();
   const [x, y] = getMousePos(e);
 
-  console.log("mousedown", { qKeyHeld });
 
   if (qKeyHeld && e.button === 0) {
     isMarqueeSelecting = true;
     marqueeStart = { x, y };
     marqueeEnd = { x, y };
-    console.log("Started marquee selection");
     return; 
   }
 

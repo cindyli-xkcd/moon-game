@@ -3,7 +3,18 @@
 import { GameState } from "./game_state.js";
 import { EventPlayer } from "./event_player.js";
 import { Renderer } from "./renderer.js";
-import { logWithTime } from "./utils.js";
+import { sleep, logWithTime } from "./utils.js";
+import { Animator } from "./animator.js";
+
+
+
+function opponentJustPlaced(gameState) {
+  return gameState.last_move
+    && gameState.last_move.player !== GameState.playerNum
+    && gameState.last_move.node
+    && gameState.last_move.value !== null;
+}
+
 
 
 export const SocketSync = {
@@ -40,7 +51,6 @@ this.socket.on("state_updated", async (gameState) => {
     Renderer.updateScores(gameState.scores);
   }
 
-  Renderer.finalize(gameState);
 
   if (gameState.new_game) {
     Renderer.clearBoldCanvas();
@@ -65,11 +75,37 @@ this.socket.on("state_updated", async (gameState) => {
     }
   }
 
+  if (opponentJustPlaced(gameState)) {
+    console.log("[SocketSync] Detected opponent move, animating card to square:", gameState.last_move);
+    
+    // TEMPORARILY HIDE PHASE ON SQUARE
+    const square = document.getElementById(gameState.last_move.node);
+    if (square) {
+      const img = square.querySelector("img");
+      if (img) img.remove(); // remove the moon phase image until flip completes
+    }
+
+    // THEN ANIMATE CARD FLYING & FLIPPING
+    await Animator.animateOpponentCardToSquare(
+      gameState.last_move.node, 
+      gameState.last_move.value
+    );
+  }
+  
+  await sleep(200)
+  Renderer.finalize(gameState);
+
   if (Array.isArray(gameState.events) && gameState.events.length > 0 && window.animationsEnabled) {
     window.isAnimating = true;
     await EventPlayer.play(gameState.events);
     window.isAnimating = false;
   }
+  
+  if (opponentJustPlaced(gameState)) {
+    Renderer.replenishOpponentHand();
+  }
+
+
 
   if (gameState.game_over) {
     window.isGameOver = true;
