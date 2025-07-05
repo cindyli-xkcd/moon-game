@@ -2,16 +2,7 @@
 
 import { sleep, logWithTime, getPhaseImage } from "./utils.js";
 
-const PHASE_IMAGES = [
-  "new_moon.png",
-  "waxing_crescent.png",
-  "first_quarter.png",
-  "waxing_gibbous.png",
-  "full_moon.png",
-  "waning_gibbous.png",
-  "last_quarter.png",
-  "waning_crescent.png"
-];
+
 
 
 export const Animator = {
