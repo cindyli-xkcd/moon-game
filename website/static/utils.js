@@ -18,3 +18,18 @@ export function logWithTime(...args) {
   console.log(`[${now}]`, ...args);
 }
 
+
+export function getPhaseImage(phase) {
+  const PHASE_IMAGES = [
+    "new_moon.png",
+    "waxing_crescent.png",
+    "first_quarter.png",
+    "waxing_gibbous.png",
+    "full_moon.png",
+    "waning_gibbous.png",
+    "last_quarter.png",
+    "waning_crescent.png"
+  ];
+  return PHASE_IMAGES[phase] ?? "";
+}
+

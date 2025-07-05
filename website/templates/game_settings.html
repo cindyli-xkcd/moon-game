@@ -16,6 +16,42 @@
   <input type="file" id="boardUpload" accept=".json" disabled>
   <p id="boardStatus">Using default 5x5 grid.</p>
 
+  <div id="deck-settings">
+    <h3>Deck Settings</h3>
+  
+    <label>
+      <input type="radio" name="deckType" value="infinite" checked>
+      Infinite deck
+    </label>
+    <br>
+    <label>
+      <input type="radio" name="deckType" value="finite">
+      Finite deck
+    </label>
+  
+    <div id="finite-options" style="display:none; margin-top: 10px;">
+      <label>
+        Copies of each phase:
+        <input type="number" id="copiesPerPhase" value="2" min="1">
+      </label>
+    </div>
+  </div>
+
+  <div id="info" style="margin-top: 10px;">
+    <p id="boardInfo"></p>
+    <p id="deckInfo"></p>
+  </div>
+
+  <div id="warnings" style="margin-top: 10px;">
+    <p id="warning" style="color: red;"></p>
+  </div>
+
+  <div id="startGameWarning" style="margin-top: 10px;">
+    <p id="startWarning" style="color: orange; font-weight: bold;"></p>
+  </div>
+
+
+
   <button onclick="startGame()">Start Game</button>
 </div>
 
@@ -84,20 +120,34 @@ document.querySelectorAll("input[name='boardChoice']").forEach(input => {
   });
 });
 
+
+
+
+
 function startGame() {
   const urlParams = new URLSearchParams(window.location.search);
-  const currentPlayer = urlParams.get("player") || "1"; // default to 1
+  const currentPlayer = urlParams.get("player") || "1";
+
+  const deckType = document.querySelector('input[name="deckType"]:checked').value;
+  const copiesPerPhase = deckType === "finite" ? parseInt(document.getElementById("copiesPerPhase").value) : null;
+
+  document.getElementById("startWarning").innerText = "";
+
 
   fetch("/start_game", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ board: boardData, room_id: roomId })
+    body: JSON.stringify({ 
+      board: boardData, 
+      room_id: roomId,
+      deckType: deckType,
+      copiesPerPhase: copiesPerPhase
+    })
   })
   .then(response => response.json())
   .then(data => {
     if (data.room_id) {
       localStorage.setItem("lastBoard", JSON.stringify(boardData));
-      // If this was an existing room, just reload
       if (roomId) {
         window.location.href = `/game/${roomId}?player=${currentPlayer}`;
       } else {
@@ -113,6 +163,115 @@ function startGame() {
   })
   .catch(() => alert("Server error starting game."));
 }
+
+
+
+
+
+
+function markSettingsChanged() {
+  document.getElementById("startWarning").innerText = "You changed settings. Press 'Start Game' again to apply changes.";
+}
+
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const finiteOptions = document.getElementById("finite-options");
+  const deckRadios = document.getElementsByName("deckType");
+
+  deckRadios.forEach(radio => {
+    radio.addEventListener("change", () => {
+      if (document.querySelector('input[name="deckType"]:checked').value === "finite") {
+        finiteOptions.style.display = "block";
+      } else {
+        finiteOptions.style.display = "none";
+      }
+    });
+  });
+});
+
+document.querySelectorAll("input[name='deckType'], #copiesPerPhase").forEach(el => {
+  el.addEventListener("change", () => {
+    updateInfo();
+    markSettingsChanged();
+  });
+});
+document.getElementById("copiesPerPhase").addEventListener("input", () => {
+  updateInfo();
+  markSettingsChanged();
+});
+document.querySelectorAll("input[name='boardChoice']").forEach(el => {
+  el.addEventListener("change", () => {
+    updateInfo();
+    markSettingsChanged();
+  });
+});
+document.getElementById("boardUpload").addEventListener("change", () => {
+  setTimeout(() => {
+    updateInfo();
+    markSettingsChanged();
+  }, 200);
+});
+
+
+
+function updateInfo() {
+  // Compute nodes
+  let nodeCount = 0;
+  if (!boardData) {
+    nodeCount = 25; // default 5x5
+  } else {
+    nodeCount = Object.keys(boardData.nodes).length;
+  }
+  document.getElementById("boardInfo").innerText = `Number of nodes on board: ${nodeCount}`;
+
+  // Compute deck
+  const deckType = document.querySelector('input[name="deckType"]:checked').value;
+  let deckText = "";
+  let deckSize = Infinity;
+  if (deckType === "infinite") {
+    deckText = "Deck is infinite.";
+  } else {
+    const copies = parseInt(document.getElementById("copiesPerPhase").value);
+    deckSize = copies * 8; // 8 moon phases
+    deckText = `Deck has ${deckSize} cards.`;
+  }
+  document.getElementById("deckInfo").innerText = deckText;
+
+  // Show warning
+  const warningEl = document.getElementById("warning");
+  if (deckSize < nodeCount) {
+    warningEl.innerText = `Warning: Deck has fewer cards  than nodes on the board. Game will end when players run out of cards.`;
+  } else {
+    warningEl.innerText = "";
+  }
+}
+
+
+
+
+
+
+// Update when settings change
+document.querySelectorAll("input[name='deckType'], #copiesPerPhase").forEach(el => {
+  el.addEventListener("change", updateInfo);
+});
+document.getElementById("copiesPerPhase").addEventListener("input", updateInfo);
+document.querySelectorAll("input[name='boardChoice']").forEach(el => {
+  el.addEventListener("change", updateInfo);
+});
+document.getElementById("boardUpload").addEventListener("change", () => {
+  // load file and then update
+  setTimeout(updateInfo, 200);
+});
+
+// Run immediately on load
+updateInfo();
+
+
+
+
 </script>
 
 </body>

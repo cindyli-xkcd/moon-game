@@ -1,6 +1,6 @@
 // animator.js
 
-import { sleep, logWithTime } from "./utils.js";
+import { sleep, logWithTime, getPhaseImage } from "./utils.js";
 
 const PHASE_IMAGES = [
   "new_moon.png",
@@ -190,23 +190,23 @@ async animateOpponentCardToSquare(nodeId, phase) {
 
     // After flight, flip to reveal the phase
     setTimeout(() => {
-      const imgFile = PHASE_IMAGES[phase] || "new_moon.png";
-      cardClone.style.background = `white url('/static/images/moon/${imgFile}') center/contain no-repeat`;
+      const imgPath = `/static/images/moon/${getPhaseImage(phase)}`;
+      cardClone.style.background = `white url('${imgPath}') center/contain no-repeat`;
       cardClone.style.border = "1px solid #888";
       cardClone.style.transform = "rotateY(180deg) scaleX(-1)";
       cardClone.style.transition = "transform 0.4s";
-
+    
       setTimeout(() => {
         document.body.removeChild(cardClone);
-
+    
         // Draw the actual phase on the square
         const img = document.createElement("img");
-        img.src = `/static/images/moon/${imgFile}`;
+        img.src = imgPath;
         img.width = 32;
         img.height = 32;
         img.alt = "moon phase";
         square.appendChild(img);
-
+    
         resolve();
       }, 400);
     }, 600);

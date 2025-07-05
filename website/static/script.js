@@ -9,7 +9,7 @@ window.isGameOver = false;
 window.isAnimating = false;
 window.isDebugMode = false;
 window.animationsEnabled = true;
-let selectedPhase = null;
+window.selectedPhase = null;
 
 
 const pathParts = window.location.pathname.split("/");
@@ -149,6 +149,10 @@ async function main() {
       // Store this as the current state AFTER animation
       GameState.current = result.state;
       selectedPhase = null;
+
+      // Immediately clear any highlighted card
+      const prev = document.querySelector("#hand .hand-card.selected");
+      if (prev) prev.classList.remove("selected");
   
     } catch (err) {
       console.error("[Main] Error placing move:", err);

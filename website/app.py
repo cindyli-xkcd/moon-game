@@ -59,6 +59,13 @@ def start_game():
     data = request.get_json()
     board_data = data.get("board")
     room_id = data.get("room_id")
+
+    deck_type = data.get("deckType", "infinite")
+    copies_per_phase = data.get("copiesPerPhase")
+
+    # If null or missing, force to None to avoid confusion
+    if deck_type != "finite":
+        copies_per_phase = None
     
     # Build the graph: either default 5x5 or from uploaded JSON
     if not board_data:
@@ -87,7 +94,10 @@ def start_game():
     if room_id and room_id in games:
         games[room_id]["graph"] = graph
         games[room_id]["score_tracker"] = ScoreTracker()
-        games[room_id]["deck_manager"] = DeckManager()
+        games[room_id]["deck_manager"] = DeckManager(
+                deck_type=deck_type,
+                copies_per_phase=copies_per_phase
+                )
         games[room_id]["starting_player"] = 1
         games[room_id]["current_player"] = 1
         games[room_id]["game_history"] = []
@@ -98,12 +108,20 @@ def start_game():
         games[room_id] = {
             "graph": graph,
             "score_tracker": ScoreTracker(),
-            "deck_manager": DeckManager(),
+            "deck_manager": DeckManager(
+                deck_type=deck_type,
+                copies_per_phase=copies_per_phase
+                ),
             "starting_player": 1,
             "current_player": 1,
             "game_history": [],
             "redo_stack": [],
-            "last_settings": {"board": board_data}
+            "last_settings": {
+                "board": board_data,
+                "deckType": deck_type,
+                "copiesPerPhase": copies_per_phase
+                }
+
         }
 
     # emit state_updated with a clear reset event
@@ -149,6 +167,9 @@ def get_state(room_id):
     deck_manager = game["deck_manager"]
     current_player = game["current_player"]
 
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+
+
     player_id = request.headers.get("X-Player-ID")
     debug = request.args.get("debug", "false").lower() == "true"
 
@@ -161,6 +182,12 @@ def get_state(room_id):
     if debug:
         hand = [0,1,2,3,4,5,6,7]
 
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+
+
     return jsonify({
         "graph": graph.to_dict(),
         "scores": score_tracker.get_scores(),
@@ -172,7 +199,9 @@ def get_state(room_id):
         },
         "current_player": current_player,
         "hand": hand,
-        "events": []
+        "hand_sizes": hand_sizes,
+        "events": [],
+        "deck_remaining": deck_remaining
     })
 
 
@@ -191,6 +220,8 @@ def place_value(room_id):
     player = data["player"]
     node_name = data["node_name"]
     value = data["value"]
+
+
 
     if "player" not in data or "node_name" not in data or "value" not in data:
         return jsonify({"success": False, "error": "Missing required fields in the request."})
@@ -218,9 +249,14 @@ def place_value(room_id):
         if debug:
             slot_index = -1
         else:
-            slot_index = deck_manager.play(player, value)
+            slot_index, _ = deck_manager.play(player, value)
     except ValueError:
         return jsonify({"success": False, "error": "Card not in hand"})
+
+
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+
+
 
     # Place the value and update scores
     node.add_value(value)
@@ -232,9 +268,18 @@ def place_value(room_id):
     # Switch player
     game["current_player"] = 3 - current_player
 
-    # Check for game over
+    # Check for game over: board full or both hands empty
     board_full = all(n.value is not None for n in graph.nodes.values())
-    final_scores = score_tracker.finalize_scores() if board_full else {}
+    hands_empty = all(card is None for card in deck_manager.get_hand(1)) and \
+                  all(card is None for card in deck_manager.get_hand(2))
+    game_over = board_full or hands_empty
+    final_scores = score_tracker.finalize_scores() if game_over else {}
+
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+
 
     # Emit to this room only
     socketio.emit("state_updated", {
@@ -248,8 +293,10 @@ def place_value(room_id):
         },
         "current_player": game["current_player"],
         "events": all_events,
-        "game_over": board_full,
+        "game_over": game_over,
         "final_scores": final_scores,
+        "deck_remaining": deck_remaining,
+        "hand_sizes": hand_sizes,
         "last_move": {
             "player": player,
             "node": node_name,
@@ -260,7 +307,7 @@ def place_value(room_id):
     return jsonify({
         "success": True,
         "events": all_events,
-        "game_over": board_full,
+        "game_over": game_over,
         "replaced_slot": slot_index,
         "state": {
             "graph": graph.to_dict(),
@@ -272,7 +319,9 @@ def place_value(room_id):
                 "lunar_cycles": score_tracker.lunar_cycle_connections
             },
             "current_player": game["current_player"],
-            "hand": deck_manager.get_hand(player) if not debug else [0,1,2,3,4,5,6,7]
+            "hand": deck_manager.get_hand(player) if not debug else [0,1,2,3,4,5,6,7],
+            "hand_sizes": hand_sizes,
+            "deck_remaining": deck_remaining
         }
     })
 
@@ -305,6 +354,15 @@ def reset_game(room_id):
     if debug:
         hand = [0,1,2,3,4,5,6,7]
 
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+
+
+
     # Public state for broadcast (no hand)
     public_state = {
         "graph": graph.to_dict(),
@@ -318,11 +376,15 @@ def reset_game(room_id):
         "current_player": game["current_player"],
         "events": [],
         "game_over": False,
-        "new_game": True
+        "new_game": True,
+        "deck_remaining": deck_remaining
+
     }
 
     # Emit to this room only
+    public_state["hand_sizes"] = hand_sizes
     socketio.emit("state_updated", public_state, to=room_id)
+
 
     # Return personal state with hand
     return jsonify({
@@ -410,7 +472,17 @@ def undo(room_id):
     game["score_tracker"] = prev_state["score_tracker"]
     game["current_player"] = prev_state["player"]
 
-    # Emit updated state to this room
+    # Compute deck remaining
+    deck_manager = game["deck_manager"]
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+    
+
+    # Emit updated state
     socketio.emit("state_updated", {
         "graph": game["graph"].to_dict(),
         "scores": game["score_tracker"].get_scores(),
@@ -422,7 +494,9 @@ def undo(room_id):
         },
         "current_player": game["current_player"],
         "events": [],
-        "is_undo": True
+        "is_undo": True,
+        "deck_remaining": deck_remaining,
+        "hand_sizes": hand_sizes
     }, to=room_id)
 
     return jsonify({"success": True})
@@ -455,7 +529,17 @@ def redo(room_id):
     game["score_tracker"] = next_state["score_tracker"]
     game["current_player"] = next_state["player"]
 
-    # Emit updated state to this room
+    # Compute deck remaining
+    deck_manager = game["deck_manager"]
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+    
+
+    # Emit updated state
     socketio.emit("state_updated", {
         "graph": game["graph"].to_dict(),
         "scores": game["score_tracker"].get_scores(),
@@ -467,11 +551,12 @@ def redo(room_id):
         },
         "current_player": game["current_player"],
         "events": [],
-        "is_undo": True  # still true since it’s a backward-like operation
+        "is_undo": True,
+        "deck_remaining": deck_remaining,
+        "hand_sizes": hand_sizes
     }, to=room_id)
 
     return jsonify({"success": True})
-
 
 
 
@@ -545,8 +630,15 @@ def handle_join(data):
     get_or_create_game(room_id)
     print(f"[DEBUG] Client joined room {room_id}")
 
-    # Immediately send the current state
     game = games[room_id]
+    deck_manager = game["deck_manager"]
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+
     emit("state_updated", {
         "graph": game["graph"].to_dict(),
         "scores": game["score_tracker"].get_scores(),
@@ -557,8 +649,11 @@ def handle_join(data):
             "lunar_cycles": game["score_tracker"].lunar_cycle_connections
         },
         "current_player": game["current_player"],
-        "events": []
+        "events": [],
+        "deck_remaining": deck_remaining,
+        "hand_sizes": hand_sizes
     }, to=room_id)
+
 
 
 

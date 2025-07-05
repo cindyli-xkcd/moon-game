@@ -95,15 +95,28 @@ this.socket.on("state_updated", async (gameState) => {
   await sleep(200)
   Renderer.finalize(gameState);
 
+  const wasMyTurn = GameState.previous && GameState.previous.current_player === GameState.playerNum;
+  const isMyTurnNow = GameState.current.current_player === GameState.playerNum;
+  
+  if (!wasMyTurn && isMyTurnNow) {
+    console.log("[SocketSync] It is now my turn — forcing showHand to highlight.");
+    Renderer.showHand(GameState.current.hand);
+  }
+  
+  GameState.previous = GameState.current;
+
+
   if (Array.isArray(gameState.events) && gameState.events.length > 0 && window.animationsEnabled) {
     window.isAnimating = true;
     await EventPlayer.play(gameState.events);
     window.isAnimating = false;
   }
   
-  if (opponentJustPlaced(gameState)) {
-    Renderer.replenishOpponentHand();
+  if (gameState.hand_sizes) {
+    const opponentPlayerNum = (GameState.playerNum === 1 ? 2 : 1);
+    Renderer.replenishOpponentHand(gameState.hand_sizes[opponentPlayerNum]);
   }
+
 
 
 

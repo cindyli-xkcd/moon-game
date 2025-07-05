@@ -1,19 +1,7 @@
-// renderer.js
+import { GameState } from "./game_state.js";
+import { getPhaseImage } from "./utils.js";
 
-const PHASE_IMAGES = [
-  "/static/images/moon/new_moon.png",
-  "/static/images/moon/waxing_crescent.png",
-  "/static/images/moon/first_quarter.png",
-  "/static/images/moon/waxing_gibbous.png",
-  "/static/images/moon/full_moon.png",
-  "/static/images/moon/waning_gibbous.png",
-  "/static/images/moon/last_quarter.png",
-  "/static/images/moon/waning_crescent.png"
-];
 
-function getPhaseImage(phase) {
-  return PHASE_IMAGES[phase] ?? "";
-}
 
 
 
@@ -45,7 +33,7 @@ export const Renderer = {
         img.alt = "moon phase";
         el.appendChild(img);
       }
-      img.src = getPhaseImage(node.value);
+      img.src = `/static/images/moon/${getPhaseImage(node.value)}`;
     }
 
     el.onclick = () => {
@@ -207,37 +195,61 @@ export const Renderer = {
 
 
 
-  showHand(hand) {
-    if (!Array.isArray(hand)) {
-      console.warn("⚠️ Invalid or missing hand:", hand);
-      return;
+
+showHand(hand) {
+  if (!Array.isArray(hand)) {
+    console.warn("⚠️ Invalid or missing hand:", hand);
+    return;
+  }
+
+  const handContainer = document.getElementById("hand");
+
+  // Always clear any previous selection data
+  window.selectedPhase = null;
+  handContainer.innerHTML = "";
+
+  // Remove any lingering highlights from DOM
+  document.querySelectorAll("#hand .hand-card.selected").forEach(el => el.classList.remove("selected"));
+
+  hand.forEach(phase => {
+    if (phase === null) return;
+    const btn = document.createElement("button");
+    btn.innerHTML = `<img src="/static/images/moon/${getPhaseImage(phase)}" alt="phase" width="32" height="32">`;
+    btn.dataset.phase = phase;
+    btn.className = "hand-card";
+
+    btn.onclick = () => {
+      if (GameState.current.current_player !== GameState.playerNum) return;
+      const previous = document.querySelector("#hand .hand-card.selected");
+      if (previous) previous.classList.remove("selected");
+      btn.classList.add("selected");
+      window.selectedPhase = parseInt(btn.dataset.phase);
+    };
+
+    handContainer.appendChild(btn);
+  });
+
+  // ✅ Always check: if it's your turn, auto-select the first available card
+  if (GameState.current.current_player === GameState.playerNum) {
+    const firstButton = handContainer.querySelector(".hand-card");
+    if (firstButton) {
+      firstButton.classList.add("selected");
+      window.selectedPhase = parseInt(firstButton.dataset.phase);
     }
-    const handContainer = document.getElementById("hand");
-    handContainer.innerHTML = "";
-  
-    hand.forEach(phase => {
-      const btn = document.createElement("button");
-      btn.innerHTML = `<img src="${getPhaseImage(phase)}" alt="phase" width="32" height="32">`;
-      btn.dataset.phase = phase;
-      btn.className = "hand-card";
-      btn.onclick = () => {
-        // Clear previous selection
-        const previous = document.querySelector("#hand .hand-card.selected");
-        if (previous) previous.classList.remove("selected");
-      
-        // Highlight only this button
-        btn.classList.add("selected");
-      
-        // Notify
-        if (Renderer.onCardSelected) {
-          Renderer.onCardSelected(phase);
-        }
-      };
+  }
+},
 
 
-      handContainer.appendChild(btn);
-    });
-  },
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -280,7 +292,7 @@ export const Renderer = {
       this.drawTwoDots(pair, "green");
     }
 
-    for (const pair of state.connections.full_moon_pairs)     {
+    for (const pair of state.connections.full_moon_pairs) {
       this.drawOneDot(pair, "green");
     }
 
@@ -293,22 +305,32 @@ export const Renderer = {
     if (Array.isArray(state.hand)) {
       this.showHand(state.hand);
     }
+    
+    if (state.deck_remaining !== undefined) {
+      const deckStatus = document.getElementById("deckStatus");
+      if (deckStatus) {
+        deckStatus.innerText = `Deck remaining: ${state.deck_remaining}`;
+      }
+    }
+
 
     this.showCurrentPlayer(state.current_player);
   },
+
   
 
-  replenishOpponentHand() {
+replenishOpponentHand(handSize) {
   const hand = document.getElementById("opponent-hand");
   if (!hand) return;
 
-  const currentCount = hand.querySelectorAll(".card-back").length;
-  for (let i = currentCount; i < 3; i++) {
+  hand.innerHTML = ""; // clear old
+  for (let i = 0; i < handSize; i++) {
     const card = document.createElement("div");
     card.className = "card-back";
     hand.appendChild(card);
   }
 }
+
 
 
 
