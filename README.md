@@ -2,13 +2,15 @@ Trying to make an online 2-player version of Google Doodle's Rise of the Full Mo
 
 Things to work on:
 
-deck setting 
+
 
 (random deck number?)
 
 public board database
 
 random board
+
+animations for cards sliding in
 
 tutorial 
 
