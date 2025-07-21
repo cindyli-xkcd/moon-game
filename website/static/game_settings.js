@@ -531,7 +531,7 @@ function appendDeckInfoSummary(board, container) {
     if (cardCount < nodeCount) {
       const warning = document.createElement("div");
       warning.className = "deck-warning-condensed";
-      warning.textContent = `⚠️ Too small for ${nodeCount} nodes`;
+      warning.textContent = `⚠️  Cards < nodes - game ends early`;
       container.appendChild(warning);
       console.log(`[Debug] ${board.name}:`, board.deckSettings, nodeCount);
 
