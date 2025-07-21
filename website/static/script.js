@@ -94,6 +94,15 @@ async function main() {
   await GameState.init();              // Choose player ID
   await GameState.load();              // Load game state
 
+  if (!GameState.boardPool || GameState.boardPool.length === 0) {
+    const randomBtn = document.getElementById("newRandomBoardBtn");
+    if (randomBtn) {
+      randomBtn.disabled = true;
+      randomBtn.title = "Upload boards to use this feature.";
+    }
+  }
+
+
   // HIGHLIGHT YOUR PLAYER'S SCORE BOX
   const myScoreBox = document.getElementById(`player${GameState.playerNum}-score`);
   if (myScoreBox) {
@@ -174,6 +183,19 @@ window.handleGameOver =
             console.error("No final scores sent from backend!");
             return;
           }
+
+	let winnerText = "";
+        const score1 = data.final_scores["1"];
+        const score2 = data.final_scores["2"];
+        
+        if (score1 > score2) {
+          winnerText = `<p><strong>🎉 Player 1 wins!</strong></p>`;
+        } else if (score2 > score1) {
+          winnerText = `<p><strong>🎉 Player 2 wins!</strong></p>`;
+        } else {
+          winnerText = `<p><strong>🤝 It's a tie!</strong></p>`;
+        }
+
         
 
         const finalScoreDiv = document.getElementById("final-scores");
@@ -189,6 +211,8 @@ window.handleGameOver =
             Base: ${data.base_scores["2"]} &nbsp;&nbsp;
             Bonus: ${data.bonus_scores["2"]} &nbsp;&nbsp;
             Total: ${data.final_scores["2"]}</p>
+
+	    ${winnerText}
         `;
     } catch (error) {
         console.error("Error fetching final scores:", error);
@@ -297,14 +321,17 @@ if (resetBtn) {
         window.isGameOver = false;
  
         // Clear selected card state
+        window.isGameOver = false;
         selectedPhase = null;
+        
         const prev = document.querySelector("#hand .hand-card.selected");
         if (prev) prev.classList.remove("selected");
-
-        GameState.current = result.state;
-        Renderer.finalize(GameState.current);
-        Renderer.showHand(GameState.current.hand);  
-	Renderer.showCurrentPlayer(null, null, `New game: Player ${GameState.current.current_player} start`);
+        
+        console.log("[UI] Reset sent — waiting for socket update");
+        
+        
+        console.log("[UI] Reset sent — waiting for socket update");
+        
 
 	console.log("New game")
         console.log("Hand after reset:", GameState.current.hand);
@@ -473,5 +500,36 @@ if (newGameBtn) {
     window.location.href = target;
   });
 }
+
+document.getElementById("new-settings-button").onclick = () => {
+  const url = `/game_settings?room=${window.roomId}`;
+  window.location.href = url;
+};
+
+document.getElementById("random-board-button").onclick = async () => {
+  if (!confirm("Randomize board for both players?")) return;
+
+  try {
+    const res = await fetch(`/new_random_board/${window.roomId}`, {
+      method: "POST",
+      headers: {
+        "X-Player-ID": `player${GameState.playerNum}`
+      }
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      alert("Failed to select random board:\n" + err);
+      return;
+    }
+
+    console.log("[UI] Random board request sent via HTTP");
+    // You don’t need to call GameState.load(); SocketSync will catch the update.
+
+  } catch (err) {
+    console.error("Random board error:", err);
+    alert("Something went wrong selecting a new board.");
+  }
+};
 
 

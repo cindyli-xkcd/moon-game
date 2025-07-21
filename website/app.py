@@ -39,7 +39,7 @@ def get_or_create_game(room_id):
 
 @app.route("/game/<room_id>")
 def game_room(room_id):
-    return render_template("index.html")
+    return render_template("game.html")
 
 @app.route("/")
 def landing():
@@ -53,11 +53,72 @@ def new_game_id():
     room_id = f"moon-{suffix}"
     return jsonify({"room_id": room_id})
 
+@app.route("/new_random_board/<room_id>", methods=["POST"])
+def new_random_board(room_id):
+    player = request.headers.get("X-Player-ID", "")
+    if player not in ("player1", "player2"):
+        return "Missing player", 400
+
+    room = games.get(room_id)
+    if not room or not room["settings"].get("boards"):
+        return "No boards available", 400
+
+    previous = room["settings"].get("board")
+    options = [b for b in room["settings"]["boards"] if b != previous]
+    board = random.choice(options) if options else previous
+
+    # Update settings with the new board
+    room["settings"]["board"] = board
+
+    # Rebuild game state
+    graph = Graph.from_dict(board)
+    score_tracker = ScoreTracker()
+    deck_manager = DeckManager(
+        deck_type=room["settings"].get("deckType", "infinite"),
+        copies_per_phase=room["settings"].get("copiesPerPhase")
+    )
+    current_player = 1
+
+    room["graph"] = graph
+    room["score_tracker"] = score_tracker
+    room["deck_manager"] = deck_manager
+    room["starting_player"] = current_player
+    room["current_player"] = current_player
+    room["game_history"] = []
+    room["redo_stack"] = []
+
+    deck_remaining = len(deck_manager.deck) if deck_manager.deck_type == "finite" else "∞"
+    hand_sizes = {
+        "1": len([c for c in deck_manager.get_hand(1) if c is not None]),
+        "2": len([c for c in deck_manager.get_hand(2) if c is not None])
+    }
+
+    # Emit state to both players
+    socketio.emit("state_updated", {
+        "graph": graph.to_dict(),
+        "scores": score_tracker.get_scores(),
+        "claimed_cards": score_tracker.get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": [],
+            "full_moon_pairs": [],
+            "lunar_cycles": []
+        },
+        "current_player": current_player,
+        "events": ["reset", "random_board"],
+        "game_over": False,
+        "new_game": True,
+        "deck_remaining": deck_remaining,
+        "hand_sizes": hand_sizes
+    }, to=room_id)
+
+    return jsonify(success=True)
+
+
 
 @app.route("/start_game", methods=["POST"])
 def start_game():
     data = request.get_json()
-    board_data = data.get("board")
+    boards = data.get("boards")
     room_id = data.get("room_id")
 
     deck_type = data.get("deckType", "infinite")
@@ -67,12 +128,15 @@ def start_game():
     if deck_type != "finite":
         copies_per_phase = None
     
-    # Build the graph: either default 5x5 or from uploaded JSON
-    if not board_data:
+    # Build the graph: choose from custom boards or use default
+    if boards and isinstance(boards, list) and all("nodes" in b for b in boards):
+        chosen_board = random.choice(boards)
+        graph = Graph.from_dict(chosen_board)
+    else:
         graph = Graph()
         scale = 100
         offset_x = 200
-        offset_y = 100
+        offset_y = 60
         for row in range(5):
             for col in range(5):
                 node_id = row * 5 + col
@@ -87,9 +151,8 @@ def start_game():
                 if row < 4:
                     down_name = f"square-{(row + 1) *5 + col}"
                     graph.connect_nodes(graph.nodes[node_name], graph.nodes[down_name])
-    else:
-        graph = Graph.from_dict(board_data)
     
+     
     # Either reuse existing room or create a new one
     if room_id and room_id in games:
         games[room_id]["graph"] = graph
@@ -102,7 +165,7 @@ def start_game():
         games[room_id]["current_player"] = 1
         games[room_id]["game_history"] = []
         games[room_id]["redo_stack"] = []
-        games[room_id]["last_settings"] = {"board": board_data}
+        games[room_id]["last_settings"] = {"board": chosen_board if boards else None}
     else:
         room_id = "moon-" + ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         games[room_id] = {
@@ -111,18 +174,24 @@ def start_game():
             "deck_manager": DeckManager(
                 deck_type=deck_type,
                 copies_per_phase=copies_per_phase
-                ),
+            ),
             "starting_player": 1,
             "current_player": 1,
             "game_history": [],
             "redo_stack": [],
-            "last_settings": {
-                "board": board_data,
+            "settings": {
+                "board": chosen_board if boards else None,
+                "boards": boards if boards else [],
                 "deckType": deck_type,
                 "copiesPerPhase": copies_per_phase
-                }
-
+            },
+            "last_settings": {
+                "board": chosen_board if boards else None,
+                "deckType": deck_type,
+                "copiesPerPhase": copies_per_phase
+            }
         }
+
 
     # emit state_updated with a clear reset event
     socketio.emit("state_updated", {
@@ -652,6 +721,47 @@ def handle_join(data):
         "events": [],
         "deck_remaining": deck_remaining,
         "hand_sizes": hand_sizes
+    }, to=room_id)
+
+
+@socketio.on("new_random_board")
+def handle_new_random_board(data):
+    room_id = data.get("room_id")
+    player = data.get("player")
+
+    if not room_id or room_id not in games:
+        emit("error", {"message": "Invalid room ID"})
+        return
+
+    if player not in ("player1", "player2"):
+        emit("error", {"message": "Missing or invalid player"})
+        return
+
+    room = games[room_id]
+    previous = room["settings"].get("board")
+    options = [b for b in room["settings"].get("boards", []) if b != previous]
+    board = random.choice(options) if options else previous
+
+    room["settings"]["board"] = board
+    new_state = create_new_game_state(room_id, board)
+    room["state"] = new_state
+
+    # Broadcast updated state to all clients in the room
+    emit("state_updated", {
+        "graph": new_state["graph"].to_dict(),
+        "scores": new_state["score_tracker"].get_scores(),
+        "claimed_cards": new_state["score_tracker"].get_all_claimed_cards(),
+        "connections": {
+            "phase_pairs": [],
+            "full_moon_pairs": [],
+            "lunar_cycles": []
+        },
+        "current_player": new_state["current_player"],
+        "events": ["reset", "random_board"],
+        "game_over": False,
+        "new_game": True,
+        "deck_remaining": new_state["deck_remaining"],
+        "hand_sizes": new_state["hand_sizes"]
     }, to=room_id)
 
 

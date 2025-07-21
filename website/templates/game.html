@@ -1,4 +1,3 @@
-<!-- index.html (the main page) -->
 
 <!doctype html>
 <html lang="en">
@@ -6,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>moon phase game</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/game.css') }}">
 </head>
 <body>
 	<div class="wrapper">
@@ -58,11 +57,12 @@
 	    <div id="hand"></div>
 
 
-	    <!--	    <div id="phase-buttons"></div>  -->
 	    <div id="game-controls">
-		    <button id="reset-button">reset game</button>
-		    <button id="new-game-button">new game</button>
-	    </div>
+               <button id="reset-button" class="control-button">Reset Board</button>
+               <button id="new-settings-button" class="control-button">Change Settings</button>
+               <button id="random-board-button" class="control-button">Random Board</button>
+             </div>
+
 	    <div id="final-scores" style="display: none; margin-top: 20px;"></div>
 
 	    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
