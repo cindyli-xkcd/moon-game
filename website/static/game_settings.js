@@ -25,6 +25,42 @@ if (urlParams.has("room")) {
 }
 
 
+function handleBoardUpload(event) {
+  const files = event.target.files;
+  if (!files.length) return;
+
+  const errors = [];
+  let loadedCount = 0;
+
+  for (const file of files) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const board = JSON.parse(e.target.result);
+        board.name = file.name.replace(/\.json$/i, "");
+        if (isValidBoard(board)) {
+          boardPool.push(board);
+        } else {
+          errors.push(`⚠️ ${file.name} is not a valid board format.`);
+        }
+      } catch (err) {
+        errors.push(`❌ ${file.name} is not valid JSON.`);
+      } finally {
+        loadedCount++;
+        if (loadedCount === files.length) {
+          renderBoardPreviews();
+          document.getElementById("warning").innerHTML = errors.join("<br>");
+          updateInfo();
+          markSettingsChanged();
+        }
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
+
+
 
 function isValidBoard(board) {
   if (!board || typeof board !== "object") return false;
@@ -49,39 +85,8 @@ function isValidBoard(board) {
 
 let boardPool = [];
 
-document.getElementById("boardUpload").addEventListener("change", function () {
-  const files = this.files;
-  if (!files.length) return;
+document.getElementById("boardUpload").addEventListener("change", handleBoardUpload);
 
-  const errors = [];
-  let loadedCount = 0;
-
-  for (const file of files) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const board = JSON.parse(e.target.result);
-	board.name = file.name.replace(/\.json$/i, ""); 
-        if (isValidBoard(board)) {
-          boardPool.push(board);
-        } else {
-          errors.push(`⚠️ ${file.name} is not a valid board format.`);
-        }
-      } catch (err) {
-        errors.push(`❌ ${file.name} is not valid JSON.`);
-      } finally {
-        loadedCount++;
-        if (loadedCount === files.length) {
-	  renderBoardPreviews();
-          document.getElementById("warning").innerHTML = errors.join("<br>");
-          updateInfo();
-          markSettingsChanged();
-        }
-      }
-    };
-    reader.readAsText(file);
-  }
-});
 
 
 
@@ -448,13 +453,6 @@ document.getElementById("copiesPerPhase").addEventListener("input", () => {
   markSettingsChanged();
 });
 
-document.getElementById("boardUpload").addEventListener("change", () => {
-  setTimeout(() => {
-    updateInfo();
-    markSettingsChanged();
-  }, 200);
-});
-
 
 
 function updateInfo() {
@@ -466,7 +464,7 @@ function updateInfo() {
   nodeCount = largestBoard;
 }
 
-  document.getElementById("boardInfo").innerText = `Number of nodes on board: ${nodeCount}`;
+  document.getElementById("boardInfo").innerText = `Number of nodes on (largest) board: ${nodeCount}`;
 
   // Compute deck
   const deckType = document.querySelector('input[name="deckType"]:checked').value;
