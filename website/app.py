@@ -73,10 +73,12 @@ def new_random_board(room_id):
     # Rebuild game state
     graph = Graph.from_dict(board)
     score_tracker = ScoreTracker()
+    board_settings = board.get("deckSettings", {})
     deck_manager = DeckManager(
-        deck_type=room["settings"].get("deckType", "infinite"),
-        copies_per_phase=room["settings"].get("copiesPerPhase")
+        deck_type=board_settings.get("deckType", room["settings"].get("deckType", "infinite")),
+        copies_per_phase=board_settings.get("copiesPerPhase", room["settings"].get("copiesPerPhase"))
     )
+    
     current_player = 1
 
     room["graph"] = graph
@@ -132,6 +134,21 @@ def start_game():
     if boards and isinstance(boards, list) and all("nodes" in b for b in boards):
         chosen_board = random.choice(boards)
         graph = Graph.from_dict(chosen_board)
+
+        deck_settings = chosen_board.get("deckSettings") if chosen_board else None
+        if deck_settings and deck_settings.get("deckType") == "finite":
+            deck_type = "finite"
+            copies_per_phase = deck_settings.get("copiesPerPhase")
+        elif deck_settings and deck_settings.get("deckType") == "infinite":
+            deck_type = "infinite"
+            copies_per_phase = None
+        else:
+            # fall back to global
+            deck_type = data.get("deckType", "infinite")
+            copies_per_phase = data.get("copiesPerPhase")
+            if deck_type != "finite":
+                copies_per_phase = None
+        
     else:
         graph = Graph()
         scale = 100
@@ -187,6 +204,7 @@ def start_game():
             },
             "last_settings": {
                 "board": chosen_board if boards else None,
+                "boards": boards if boards else [],
                 "deckType": deck_type,
                 "copiesPerPhase": copies_per_phase
             }

@@ -1,0 +1,176 @@
+/* === General layout === */
+body {
+  font-family: sans-serif;
+  padding: 20px;
+  background-color: #fdfdfd;
+  color: #222;
+}
+
+h1, h3 {
+  text-align: center;
+}
+
+/* === Board Preview Grid === */
+#boardPreviewContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* === Board Tile === */
+.board-preview {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f8f8f8;
+  padding: 8px;
+  width: 220px;
+  text-align: center;
+}
+
+.board-preview canvas {
+  cursor: pointer;
+}
+
+/* === Per-board Deck Settings === */
+.per-board-settings {
+  margin-top: 8px;
+  font-size: 90%;
+}
+
+.custom-deck-options {
+  margin-top: 4px;
+}
+
+.custom-deck-options label {
+  display: block;
+  margin-top: 4px;
+}
+
+.custom-deck-options input[type="number"] {
+  width: 60px;
+}
+
+/* === Add Board Tile === */
+#addBoardTile {
+  width: 200px;
+  height: 200px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #ccc;
+  color: #777;
+  font-size: 18px;
+  cursor: pointer;
+  margin: 10px;
+  border-radius: 6px;
+}
+
+/* === Buttons === */
+button {
+  font-size: 14px;
+  padding: 6px 12px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+button.danger-button {
+  background: #ffecec;
+  border: 1px solid #dd6666;
+  color: #aa0000;
+}
+
+button.danger-button:hover {
+  background: #ffdddd;
+}
+
+/* === Warning / Info === */
+#warning, #startWarning {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+#warning {
+  color: red;
+}
+
+#startWarning {
+  color: orange;
+}
+
+#boardFallbackNotice {
+  font-style: italic;
+  color: #666;
+}
+
+/* === Modal === */
+#boardModal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+#boardModal > div {
+  position: relative;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+#boardModal button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: #eee;
+  border: none;
+  font-size: 16px;
+}
+
+/* === Layout helper classes === */
+.settings-container {
+  max-width: 600px;
+  margin: auto;
+}
+
+.center {
+  text-align: center;
+}
+
+#finite-options {
+  display: none;
+  margin-top: 10px;
+}
+
+.deck-info-condensed,
+.deck-warning-condensed {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.deck-warning-condensed {
+  color: red;
+  font-weight: bold;
+}
+
+.per-board-settings input[type="radio"] {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.per-board-settings label {
+  display: inline-block;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.settings-note {
+  font-size: 0.9em;
+  color: #555;
+  margin-bottom: 10px;
+}
+
