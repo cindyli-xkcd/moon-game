@@ -45,3 +45,4 @@ test_chains.py
 test_chains_complete.py
 __pycache__/
 *.pyc
+Sample boards/
