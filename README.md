@@ -8,7 +8,7 @@ This license applies to:
 - All UI text and wording written by the creator
 
 ###  What This License Does Not Cover
-- Game mechanics and rules, which are inspired by [Google's "Rise of the Half Moon" Doodle](https://www.google.com/doodles/rising-of-the-half-moon)
+- Game mechanics and rules, which are from [Google's "Rise of the Half Moon" Doodle](https://www.google.com/doodles/rising-of-the-half-moon)
 - Moon phase icons from [Google Noto Emoji](https://github.com/googlefonts/noto-emoji), licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
 This is a fan-made, non-commercial reinterpretation made for fun and learning.
