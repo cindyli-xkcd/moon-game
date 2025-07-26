@@ -794,6 +794,12 @@ def robots_txt():
     return app.send_static_file("robots.txt")
 
 
+@app.route("/google1fe9a4da69c1cfc8.html")
+def google_site_verification():
+    return "google-site-verification: google1fe9a4da69c1cfc8.html"
+
+
+
 
 if __name__ == "__main__":
     import os
