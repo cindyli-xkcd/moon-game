@@ -789,6 +789,11 @@ def handle_new_random_board(data):
 def graph_builder():
     return render_template("graph_builder.html")
 
+@app.route("/robots.txt")
+def robots_txt():
+    return app.send_static_file("robots.txt")
+
+
 
 if __name__ == "__main__":
     import os
