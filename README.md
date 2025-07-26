@@ -1,3 +1,10 @@
+# Moon Game
+
+A fan-made, multiplayer game inspired by Google's Rise of the Half Moon Doodle.
+
+**Play here:** [moon-game.onrender.com](https://moon-game.onrender.com)
+
+
 ## License
 
 This project is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/).
