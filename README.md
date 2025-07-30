@@ -1,6 +1,6 @@
 # Moon Game
 
-A fan-made, multiplayer game inspired by Google's Rise of the Half Moon Doodle.
+A fan-made, multiplayer pvp game inspired by Google's Rise of the Half Moon Doodle.
 
 **Play here:** [moon-game.onrender.com](https://moon-game.onrender.com)
 
