@@ -501,10 +501,15 @@ if (newGameBtn) {
   });
 }
 
-document.getElementById("new-settings-button").onclick = () => {
-  const url = `/game_settings?room=${window.roomId}`;
-  window.location.href = url;
-};
+const changeSettingsBtn = document.getElementById("new-settings-button");
+if (changeSettingsBtn) {
+  changeSettingsBtn.addEventListener("click", () => {
+    const qs = new URLSearchParams(location.search);
+    const player = qs.get("player") || (typeof GameState !== "undefined" && GameState.playerNum) || "1";
+    window.location.href = `/game_settings?room=${window.roomId}&player=${player}`;
+  });
+}
+
 
 document.getElementById("random-board-button").onclick = async () => {
   if (!confirm("Randomize board for both players?")) return;

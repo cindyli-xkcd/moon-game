@@ -1,28 +1,54 @@
 /* game_settings.js */
 
-let roomId = null;
 
-// Parse ?room=moon-abc123 from URL if present
+// Parse ?room=... and pre-fill from server memory
 const urlParams = new URLSearchParams(window.location.search);
+let roomId = null;
+let boardPool = []; // keep your existing global
+
 if (urlParams.has("room")) {
   roomId = urlParams.get("room");
   fetch(`/game_settings_data?room=${roomId}`)
-  .then(res => res.json())
-  .then(data => {
-  if (data && Array.isArray(data.boards)) {
-    boardPool = data.boards;
+    .then(res => res.json())
+    .then((data) => {
+      // Prefer last_settings; fall back to previous_settings if server still sends it
+      const prev = data.last_settings || data.previous_settings || {};
 
-    // Ensure any missing fields like .name are restored
-    boardPool.forEach((b, i) => {
-      if (!b.name) b.name = `Board ${i + 1}`;
-    });
+      // 1) Boards pool
+      if (Array.isArray(prev.boards)) {
+        boardPool = prev.boards.map((b, i) => ({ ...b, name: b.name || `Board ${i + 1}` }));
+      } else {
+        boardPool = [];
+      }
 
-    renderBoardPreviews();
-    updateInfo();
-  }
-})
-  .catch(() => console.log("No previous settings found for this room."));
+      // 2) Global deck controls (room-level remembered values)
+      const rememberedDeckType =
+        prev.deckType ??
+        (prev.board && prev.board.deckSettings && prev.board.deckSettings.deckType) ??
+        "infinite";
+
+      const rememberedCopies =
+        (typeof prev.copiesPerPhase === "number" ? prev.copiesPerPhase : null) ??
+        (prev.board && prev.board.deckSettings && typeof prev.board.deckSettings.copiesPerPhase === "number"
+          ? prev.board.deckSettings.copiesPerPhase
+          : null) ?? 2;
+
+      const deckRadio = document.querySelector(`input[name="deckType"][value="${rememberedDeckType}"]`);
+      if (deckRadio) deckRadio.checked = true;
+
+      const finiteOptions = document.getElementById("finite-options");
+      if (finiteOptions) finiteOptions.style.display = rememberedDeckType === "finite" ? "block" : "none";
+
+      const copiesInput = document.getElementById("copiesPerPhase");
+      if (copiesInput && rememberedDeckType === "finite") copiesInput.value = rememberedCopies;
+
+      // 3) Draw previews + recompute info/warnings
+      if (typeof renderBoardPreviews === "function") renderBoardPreviews();
+      if (typeof updateInfo === "function") updateInfo();
+    })
+    .catch(err => console.warn("No last settings found for this room:", err));
 }
+
 
 
 function handleBoardUpload(event) {
@@ -83,7 +109,6 @@ function isValidBoard(board) {
   return true;
 }
 
-let boardPool = [];
 
 document.getElementById("boardUpload").addEventListener("change", handleBoardUpload);
 

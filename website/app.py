@@ -175,14 +175,23 @@ def start_game():
         games[room_id]["graph"] = graph
         games[room_id]["score_tracker"] = ScoreTracker()
         games[room_id]["deck_manager"] = DeckManager(
-                deck_type=deck_type,
-                copies_per_phase=copies_per_phase
-                )
+            deck_type=deck_type,
+            copies_per_phase=copies_per_phase
+        )
         games[room_id]["starting_player"] = 1
         games[room_id]["current_player"] = 1
         games[room_id]["game_history"] = []
         games[room_id]["redo_stack"] = []
-        games[room_id]["last_settings"] = {"board": chosen_board if boards else None}
+    
+        # keep both settings + last_settings aligned 
+        games[room_id]["settings"] = {
+            "board": chosen_board if boards else None,
+            "boards": boards if boards else [],
+            "deckType": deck_type,
+            "copiesPerPhase": copies_per_phase
+        }
+        games[room_id]["last_settings"] = dict(games[room_id]["settings"])
+    
     else:
         room_id = "moon-" + ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         games[room_id] = {
@@ -236,7 +245,7 @@ def start_game():
 def game_settings_data():
     room_id = request.args.get("room")
     if room_id and room_id in games:
-        return jsonify({"previous_settings": games[room_id].get("last_settings", {})})
+        return jsonify({"last_settings": games[room_id].get("last_settings", {})})
     return jsonify({})
 
 
