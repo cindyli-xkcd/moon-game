@@ -1,3 +1,4 @@
+add tutorial
 make mobile-friendly
 database of boards
 animations
